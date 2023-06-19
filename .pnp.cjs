@@ -36,6 +36,7 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["@types/react", "npm:18.2.12"],\
             ["@types/react-dom", "npm:18.2.5"],\
             ["@types/testing-library__jest-dom", "npm:5.14.6"],\
+            ["classnames", "npm:2.3.2"],\
             ["react", "npm:18.2.0"],\
             ["react-dom", "virtual:a14694d5a9c4c18aa923fed8314097f93f7da815f2ccf6d28e58cacc0ea58c99aabb7d5f5f891caa8a37afb5b217f597ff5af2802a94fc8d27fce97aa324b74b#npm:18.2.0"],\
             ["react-scripts", "virtual:a14694d5a9c4c18aa923fed8314097f93f7da815f2ccf6d28e58cacc0ea58c99aabb7d5f5f891caa8a37afb5b217f597ff5af2802a94fc8d27fce97aa324b74b#npm:5.0.1"],\
@@ -6770,6 +6771,15 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "packageLocation": "./.yarn/cache/cjs-module-lexer-npm-1.2.3-9d788a3c14-5ea3cb867a.zip/node_modules/cjs-module-lexer/",\
           "packageDependencies": [\
             ["cjs-module-lexer", "npm:1.2.3"]\
+          ],\
+          "linkType": "HARD"\
+        }]\
+      ]],\
+      ["classnames", [\
+        ["npm:2.3.2", {\
+          "packageLocation": "./.yarn/cache/classnames-npm-2.3.2-d2fdae468d-2c62199789.zip/node_modules/classnames/",\
+          "packageDependencies": [\
+            ["classnames", "npm:2.3.2"]\
           ],\
           "linkType": "HARD"\
         }]\
@@ -15904,6 +15914,7 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["@types/react", "npm:18.2.12"],\
             ["@types/react-dom", "npm:18.2.5"],\
             ["@types/testing-library__jest-dom", "npm:5.14.6"],\
+            ["classnames", "npm:2.3.2"],\
             ["react", "npm:18.2.0"],\
             ["react-dom", "virtual:a14694d5a9c4c18aa923fed8314097f93f7da815f2ccf6d28e58cacc0ea58c99aabb7d5f5f891caa8a37afb5b217f597ff5af2802a94fc8d27fce97aa324b74b#npm:18.2.0"],\
             ["react-scripts", "virtual:a14694d5a9c4c18aa923fed8314097f93f7da815f2ccf6d28e58cacc0ea58c99aabb7d5f5f891caa8a37afb5b217f597ff5af2802a94fc8d27fce97aa324b74b#npm:5.0.1"],\

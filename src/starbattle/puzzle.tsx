@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 
+import './puzzle.css'
+
 enum Cell {
     BLANK,
     SPACE,
@@ -58,31 +60,21 @@ function makeNeighbourView(cells: Cell[], size: number): Cell[][] {
 
 type CellProps = {
     value: Cell
+    onClick: React.MouseEventHandler<HTMLButtonElement>
 }
 
-function StarBattleCell({ value }: CellProps): JSX.Element {
+function StarBattleCell({ value, onClick }: CellProps): JSX.Element {
     const typeToSymbol = {
         [Cell.BLANK]: "",
         [Cell.SPACE]: "✖",
         [Cell.STAR]: "★",
     }
     const symbol = typeToSymbol[value]
-    return <>{symbol}</>
-}
-
-type RowProps = {
-    cells: Cell[]
-}
-
-function StarBattleRow({ cells }: RowProps): JSX.Element {
-    const items = cells.map((_, i) => (
-        <StarBattleCell key={i} value={cells[i]} />
-    ))
-    return <>{items}</>
+    return <button className="StarBattle-Cell" onClick={onClick}>{symbol}</button>
 }
 
 export default function StarBattlePuzzle({ size = 10, starCount = 2 }): JSX.Element {
-    const [cells, setCellTypes] = useState(Array(size**2).fill(Cell.STAR))
+    const [cells, setCells] = useState(Array(size**2).fill(Cell.STAR))
     const [walls, setWalls] = useState(Array((size-1)**2).fill(false))
     const columns = useMemo(() => makeColumnView(cells, size), [cells, size])
     const rows = useMemo(() => makeRowView(columns), [columns])
@@ -135,8 +127,14 @@ export default function StarBattlePuzzle({ size = 10, starCount = 2 }): JSX.Elem
         return cells.reduce((sum, current) => current == Cell.STAR ? sum + 1 : sum, 0)
     }
 
-    const contentRows = rows.map((row, i) => (
-        <StarBattleRow key={i}  cells={row} />
+    function setCell(i: number, newValue: Cell) {
+        const newCells = cells.slice()
+        newCells[i] = newValue
+        setCells(newCells)
+    }
+
+    const contentCells = cells.map((cell, i) => (
+        <StarBattleCell key={i} value={cell} onClick={() => setCell(i, (cells[i] + 1) % 3)}/>
     ))
-    return <>{contentRows}</>
+    return <div className="StarBattle-Puzzle">{contentCells}</div>
 }

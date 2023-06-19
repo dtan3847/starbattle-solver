@@ -10,8 +10,24 @@
     font-size: 30px;
 }
 
+.StarBattle-Cell-Border-Left {
+    border-left: 3px solid black;
+}
+
+.StarBattle-Cell-Border-Top {
+    border-top: 3px solid black;
+}
+
+.StarBattle-Cell-Border-Right {
+    border-right: 3px solid black;
+}
+
+.StarBattle-Cell-Border-Bottom {
+    border-bottom: 3px solid black;
+}
+
 .StarBattle-Puzzle {
     display: grid;
     grid-template-columns: repeat(10, auto);
-    border: 5px solid black;
+    border: 8px solid black;
 }

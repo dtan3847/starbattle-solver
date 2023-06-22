@@ -28,6 +28,6 @@
 
 .StarBattle-Puzzle {
     display: grid;
-    grid-template-columns: repeat(10, auto);
+    grid-template-columns: repeat(5, auto);
     border: 8px solid black;
 }

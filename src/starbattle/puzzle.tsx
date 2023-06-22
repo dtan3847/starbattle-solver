@@ -9,6 +9,11 @@ enum Cell {
     SPACE,
 }
 
+enum Mode {
+    DRAW,
+    SOLVE,
+}
+
 function makeColumnView(cells: Cell[], size: number): Cell[][] {
    const columns = []
     for (let x = 0; x < size; x++) {
@@ -31,9 +36,8 @@ function makeRowView(columns: Cell[][]): Cell[][] {
     return rows
 }
 
-function makeGroupView(cells: Cell[], horizontalWalls: boolean[], verticalWalls: boolean[]): Cell[][] {
-    //todo
-    return []
+function makeGroupView(cells: Cell[], groups: number[][]): Cell[][] {
+    return groups.map(group => group.map(index => cells[index]))
 }
 
 
@@ -60,29 +64,25 @@ function makeNeighbourView(cells: Cell[], size: number): Cell[][] {
 }
 
 type CellProps = {
-    value: Cell
+    value: string
     className: string
     onClick: React.MouseEventHandler<HTMLButtonElement>
 }
 
 function StarBattleCell({ value, className, onClick }: CellProps): JSX.Element {
-    const typeToSymbol = {
-        [Cell.BLANK]: "",
-        [Cell.STAR]: "★",
-        [Cell.SPACE]: "✖",
-    }
-    const symbol = typeToSymbol[value]
-    return <button className={className} onClick={onClick}>{symbol}</button>
+    return <button className={className} onClick={onClick}>{value}</button>
 }
 
-export default function StarBattlePuzzle({ size = 10, starCount = 2 }): JSX.Element {
+export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Element {
     const [cells, setCells] = useState(Array(size**2).fill(Cell.BLANK))
     const [horizontalWalls, setHorizontalWalls] = useState(Array(size*(size-1)).fill(false))
     const [verticalWalls, setVerticalWalls] = useState(Array(size*(size-1)).fill(false))
-    const columns = useMemo(() => makeColumnView(cells, size), [cells, size])
-    const rows = useMemo(() => makeRowView(columns), [columns])
-    const neighbours = useMemo(() => makeNeighbourView(cells, size), [cells, size])
-    const groups = useMemo(() => makeGroupView(cells, horizontalWalls, verticalWalls), [cells, horizontalWalls, verticalWalls])
+    const columnView = useMemo(() => makeColumnView(cells, size), [cells, size])
+    const rowView = useMemo(() => makeRowView(columnView), [columnView])
+    const neighbourView = useMemo(() => makeNeighbourView(cells, size), [cells, size])
+    const {groups, groupIndexes} = useMemo(() => makeGroups(), [cells, size, horizontalWalls, verticalWalls])
+    const groupView = useMemo(() => makeGroupView(cells, groups), [groups])
+    const [mode, setMode] = useState(Mode.DRAW)
     
     /**
      * isSolvable - Returns true if puzzle has no mistakes
@@ -101,19 +101,19 @@ export default function StarBattlePuzzle({ size = 10, starCount = 2 }): JSX.Elem
         // for each cell that have a star, surrounding cells must have no star
         for (let i = 0; i < cells.length; i++) {
             if (cells[i] == Cell.STAR) {
-                if (neighbours[i].find(neighbour => neighbour == Cell.STAR)) {
+                if (neighbourView[i].find(neighbour => neighbour == Cell.STAR)) {
                     return false
                 }
             }
         }
         // each row, column, group must have exactly n stars
-        for (const row of rows) {
+        for (const row of rowView) {
             if (getStarCount(row) != starCount) return false
         }
-        for (const column of columns) {
+        for (const column of columnView) {
             if (getStarCount(column) != starCount) return false
         }
-        for (const group of groups) {
+        for (const group of groupView) {
             if (getStarCount(group) != starCount) return false
         }
         return true
@@ -121,7 +121,7 @@ export default function StarBattlePuzzle({ size = 10, starCount = 2 }): JSX.Elem
 
     function getCell(x: number, y: number): Cell | undefined {
         if (x < 0 || x >= size || y < 0 || y >= size) return
-        return columns[x][y]
+        return columnView[x][y]
     }
 
     function setCell(i: number, newValue: Cell) {
@@ -158,18 +158,72 @@ export default function StarBattlePuzzle({ size = 10, starCount = 2 }): JSX.Elem
         setVerticalWalls(newWalls)
     }
 
+    type GroupOut = {
+        groups: number[][]
+        groupIndexes: number[]
+    }
+    
+    function makeGroups(): GroupOut {
+        const groupsSet: Set<number[]> = new Set()
+        const indexToGroup: Map<number, number[]> = new Map()
+        function setGroup(index: number, group: number[]) {
+            group.push(index)
+            indexToGroup.set(index, group)
+        }
+        function updateNeighbour(currIndex: number, neighbourIndex: number) {
+            const currGroup = indexToGroup.get(currIndex)!
+            if (indexToGroup.has(neighbourIndex)) {
+                // if neighbour in a different group, merge groups
+                const rightGroup = indexToGroup.get(neighbourIndex)!
+                if (currGroup !== rightGroup) {
+                    for (const i of rightGroup) {
+                        setGroup(i, currGroup)
+                    }
+                    groupsSet.delete(rightGroup)
+                }
+            } else {
+                // if no group, assign same group
+                setGroup(neighbourIndex, currGroup)
+            }
+        }
+
+        // for each cell
+        for (let i = 0; i < cells.length; i++) {
+            // if not in group, create new group and add to it
+            if (!indexToGroup.has(i)) {
+                const newGroup: number[] = []
+                groupsSet.add(newGroup)
+                setGroup(i, newGroup)
+            }
+            // update neighbour (down/right) if no wall:
+            const { x, y } = getCoords(i, size)
+            if (x < size - 1 && !verticalWallExists(x, y)) {
+                updateNeighbour(i, getIndex(x + 1, y, size))
+            }
+            if (y < size - 1 && !horizontalWallExists(x, y)) {
+                updateNeighbour(i, getIndex(x, y + 1, size))
+            }
+        }
+        const groups = Array.from(groupsSet)
+        const groupIndexes: number[] = []
+        for (let i = 0; i < cells.length; i++) {
+            groupIndexes[i] = groups.indexOf(indexToGroup.get(i)!)
+        }
+        return {groups, groupIndexes }
+    }
+
     function makeCellClickHandler(i: number) {
         const { x, y } = getCoords(i, size)
         const margin = 7 // px
         return (event: React.MouseEvent<HTMLElement>) => {
             if (event.target instanceof HTMLElement) {
                 const { clientX, clientY, target: { offsetLeft, offsetTop, offsetWidth, offsetHeight }} = event
-                console.log(x, y, clientX, clientY, offsetLeft, offsetTop, offsetLeft + offsetWidth, offsetTop + offsetHeight)
+                // console.log(x, y, clientX, clientY, offsetLeft, offsetTop, offsetLeft + offsetWidth, offsetTop + offsetHeight)
                 if (Math.abs(offsetLeft - clientX) < margin) return toggleVerticalWall(x - 1, y)
                 if (Math.abs(offsetTop - clientY) < margin) return toggleHorizontalWall(x, y - 1)
                 if (Math.abs(offsetLeft + offsetWidth - clientX) < margin) return toggleVerticalWall(x, y)
                 if (Math.abs(offsetTop + offsetHeight - clientY) < margin) return toggleHorizontalWall(x, y)
-                setCell(i, (cells[i] + 1) % 3)
+                if (mode === Mode.SOLVE) return setCell(i, (cells[i] + 1) % 3)
             }
         }
     }
@@ -184,11 +238,17 @@ export default function StarBattlePuzzle({ size = 10, starCount = 2 }): JSX.Elem
             'StarBattle-Cell-Border-Bottom': horizontalWallExists(x, y),
         })
     }
+    
+    const typeToSymbol = {
+        [Cell.BLANK]: "",
+        [Cell.STAR]: "★",
+        [Cell.SPACE]: "✖",
+    }
 
-    const contentCells = cells.map((cell, i) => (
+    const contentCells = cells.map((cell: Cell, i) => (
         <StarBattleCell
             key={i}
-            value={cell}
+            value={mode === Mode.SOLVE ? typeToSymbol[cell]: groupIndexes[i].toString()}
             className={makeCellClassNames(i)}
             onClick={makeCellClickHandler(i)}
         />

@@ -70,7 +70,15 @@ type CellProps = {
 }
 
 function StarBattleCell({ value, className, onClick }: CellProps): JSX.Element {
-    return <button className={className} onClick={onClick}>{value}</button>
+    return (
+        <button
+            className={className}
+            onClick={onClick}
+            onContextMenu={onClick}
+        >
+            {value}
+        </button>
+    )
 }
 
 export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Element {
@@ -217,13 +225,21 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
         const margin = 7 // px
         return (event: React.MouseEvent<HTMLElement>) => {
             if (event.target instanceof HTMLElement) {
+                event.preventDefault()
                 const { clientX, clientY, target: { offsetLeft, offsetTop, offsetWidth, offsetHeight }} = event
                 // console.log(x, y, clientX, clientY, offsetLeft, offsetTop, offsetLeft + offsetWidth, offsetTop + offsetHeight)
-                if (Math.abs(offsetLeft - clientX) < margin) return toggleVerticalWall(x - 1, y)
-                if (Math.abs(offsetTop - clientY) < margin) return toggleHorizontalWall(x, y - 1)
-                if (Math.abs(offsetLeft + offsetWidth - clientX) < margin) return toggleVerticalWall(x, y)
-                if (Math.abs(offsetTop + offsetHeight - clientY) < margin) return toggleHorizontalWall(x, y)
-                if (mode === Mode.SOLVE) return setCell(i, (cells[i] + 1) % 3)
+                if (mode === Mode.SOLVE) {
+                    console.log(cells[i], cells[i] + 1, (cells[i] + 1) % 3, cells[i] + 2, (cells[i] + 2) % 3)
+                    // left click to cycle symbol forward, right click to cycle back
+                    if (event.type === "click") setCell(i, (cells[i] + 1) % 3)
+                    else if (event.type === "contextmenu") setCell(i, (cells[i] + 2) % 3)
+                    return
+                }
+                if (mode !== Mode.DRAW) return
+                if (Math.abs(offsetLeft - clientX) < margin) toggleVerticalWall(x - 1, y)
+                if (Math.abs(offsetTop - clientY) < margin) toggleHorizontalWall(x, y - 1)
+                if (Math.abs(offsetLeft + offsetWidth - clientX) < margin) toggleVerticalWall(x, y)
+                if (Math.abs(offsetTop + offsetHeight - clientY) < margin) toggleHorizontalWall(x, y)
             }
         }
     }
@@ -245,15 +261,26 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
         [Cell.SPACE]: "✖",
     }
 
-    const contentCells = cells.map((cell: Cell, i) => (
-        <StarBattleCell
-            key={i}
-            value={mode === Mode.SOLVE ? typeToSymbol[cell]: groupIndexes[i].toString()}
-            className={makeCellClassNames(i)}
-            onClick={makeCellClickHandler(i)}
-        />
-    ))
-    return <div className="StarBattle-Puzzle">{contentCells}</div>
+    const contentCells = cells.map((cell: Cell, i) => {
+        return (
+            <StarBattleCell
+                key={i}
+                value={mode === Mode.SOLVE ? typeToSymbol[cell]: groupIndexes[i].toString()}
+                className={makeCellClassNames(i)}
+                onClick={makeCellClickHandler(i)}
+            />
+        )
+    })
+    return (
+        <div className="StarBattle-Puzzle">
+            <div onClick={() => setMode((mode + 1) % 2)}>
+                Mode: {Mode[mode]}
+            </div>
+            <div className="StarBattle-Grid">
+                {contentCells}
+            </div>
+        </div>
+    )
 }
 
 function getStarCount(cells: Cell[]) {

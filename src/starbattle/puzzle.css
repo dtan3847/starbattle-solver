@@ -26,7 +26,7 @@
     border-bottom: 3px solid black;
 }
 
-.StarBattle-Puzzle {
+.StarBattle-Grid {
     display: grid;
     grid-template-columns: repeat(5, auto);
     border: 8px solid black;

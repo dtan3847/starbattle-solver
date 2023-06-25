@@ -14,55 +14,6 @@ enum Mode {
     SOLVE,
 }
 
-function makeColumnView(cells: Cell[], size: number): Cell[][] {
-   const columns = []
-    for (let x = 0; x < size; x++) {
-        const column: Cell[] = []
-        columns.push(column)
-        for (let y = 0; y < size; y++) {
-            const i = getIndex(x, y, size)
-            column.push(cells[i])
-        }
-    }
-    return columns
-}
-
-function makeRowView(columns: Cell[][]): Cell[][] {
-    const size = columns.length
-    const rows = []
-    for (let y = 0; y < size; y++) {
-        rows.push(columns.map(column => column[y]))
-    }
-    return rows
-}
-
-function makeGroupView(cells: Cell[], groups: number[][]): Cell[][] {
-    return groups.map(group => group.map(index => cells[index]))
-}
-
-
-function makeNeighbourView(cells: Cell[], size: number): Cell[][] {
-    function addCellTypeIfExists(dest: Cell[], i: number) {
-        if (i < 0 || i > size) return
-        const cell = cells[i]
-        if (!cell) return
-        dest.push(cell)
-    }
-    function getNeighbours(i: number) {
-        const neighbours: Cell[] = []
-        addCellTypeIfExists(neighbours, i - size - 1)
-        addCellTypeIfExists(neighbours, i - size)
-        addCellTypeIfExists(neighbours, i - size + 1)
-        addCellTypeIfExists(neighbours, i - 1)
-        addCellTypeIfExists(neighbours, i + 1)
-        addCellTypeIfExists(neighbours, i + size - 1)
-        addCellTypeIfExists(neighbours, i + size)
-        addCellTypeIfExists(neighbours, i + size + 1)
-        return neighbours
-    }
-    return cells.map((_, i) => getNeighbours(i))
-}
-
 type CellProps = {
     value: string
     className: string
@@ -85,12 +36,58 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
     const [cells, setCells] = useState(Array(size**2).fill(Cell.BLANK))
     const [horizontalWalls, setHorizontalWalls] = useState(Array(size*(size-1)).fill(false))
     const [verticalWalls, setVerticalWalls] = useState(Array(size*(size-1)).fill(false))
-    const columnView = useMemo(() => makeColumnView(cells, size), [cells, size])
+    const columnView = useMemo(() => makeColumnView(), [cells, size])
     const rowView = useMemo(() => makeRowView(columnView), [columnView])
-    const neighbourView = useMemo(() => makeNeighbourView(cells, size), [cells, size])
+    const neighbourView = useMemo(() => makeNeighbourView(), [cells, size])
     const {groups, groupIndices} = useMemo(() => makeGroups(), [size, horizontalWalls, verticalWalls])
-    const groupView = useMemo(() => makeGroupView(cells, groups), [cells, groups])
+    const groupView = useMemo(() => makeGroupView(), [cells, groups])
     const [mode, setMode] = useState(Mode.DRAW)
+    
+
+    function makeColumnView(): Cell[][] {
+        const columns = []
+        for (let x = 0; x < size; x++) {
+            const column: Cell[] = []
+            columns.push(column)
+            for (let y = 0; y < size; y++) {
+                const i = getIndex(x, y, size)
+                column.push(cells[i])
+            }
+        }
+        return columns
+    }
+    
+    function makeRowView(columns: Cell[][]): Cell[][] {
+        const size = columns.length
+        const rows = []
+        for (let y = 0; y < size; y++) {
+            rows.push(columns.map(column => column[y]))
+        }
+        return rows
+    }
+    
+    function makeGroupView(): Cell[][] {
+        return groups.map(group => group.map(index => cells[index]))
+    }
+    
+    function makeNeighbourView(): Cell[][] {
+        return cells.map((_, i) => getNeighbouringIndices(i).map(index => cells[index]))
+    }
+    
+    function getNeighbouringIndices(i: number) {
+        const { x, y } = getCoords(i, size)
+        return [
+            [x - 1, y - 1],
+            [x, y - 1],
+            [x + 1, y - 1],
+            [x - 1, y],
+            [x + 1, y],
+            [x - 1, y + 1],
+            [x, y + 1],
+            [x + 1, y + 1],
+        ].filter(([x, y]) => x >= 0 && x < size && y >= 0 && y < size)
+        .map(([x, y]) => getIndex(x, y, size))
+    }
     
     /**
      * isSolvable - Returns true if puzzle has no mistakes
@@ -108,8 +105,8 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
     function isSolved(): boolean {
         // for each cell that have a star, surrounding cells must have no star
         for (let i = 0; i < cells.length; i++) {
-            if (cells[i] == Cell.STAR) {
-                if (neighbourView[i].find(neighbour => neighbour == Cell.STAR)) {
+            if (cells[i] === Cell.STAR) {
+                if (neighbourView[i].find(neighbour => neighbour === Cell.STAR)) {
                     return false
                 }
             }
@@ -244,7 +241,7 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
         }
     }
 
-    const nextStep = mode == Mode.SOLVE ? getNextStep() : { indices: [] }
+    const nextStep = mode === Mode.SOLVE ? getNextStep() : { indices: [] }
 
     function makeCellClassNames(i: number, nextStepIndices: number[]) {
         const { x, y } = getCoords(i, size)
@@ -282,7 +279,7 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
                 {contentCells}
             </div>
             <div className="StarBattle-Message">
-                {mode == Mode.SOLVE ? JSON.stringify(nextStep) : ''}
+                {mode === Mode.SOLVE ? JSON.stringify(nextStep) : ''}
             </div>
         </div>
     )
@@ -298,9 +295,27 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
         const ret = {}
         // apply each rule
         // return first match
+        for (let i = 0; i < cells.length; i++) {
+            if (cells[i] === Cell.X) continue
+            if (cells[i] === Cell.STAR) {
+                const indices = getNeighbouringIndices(i).filter(index => cells[index] != Cell.X)
+                if (indices.length > 0)
+                    return {
+                        indices,
+                        type: Cell.X,
+                        message: `Stars cannot be placed in cells neighbouring a star (including diagonals).`
+                    }
+            }
+            if (neighbouringGroupExists(i))
+                return {
+                    indices: [i],
+                    type: Cell.X,
+                    message: `Stars cannot be placed here. Otherwise, no cells can be placed within the group.`
+                }
+        }
         for (const group of groups) {
-            if (remainingStars(group) == 0) {
-                const indices = group.filter(index => cells[index] == Cell.BLANK)
+            if (remainingStars(group) === 0) {
+                const indices = group.filter(index => cells[index] === Cell.BLANK)
                 if (indices.length > 0) 
                     return {
                         indices,
@@ -309,7 +324,7 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
                     }
             }
             const y = findSharedRow(group)
-            if (typeof y == "number") {
+            if (typeof y === "number") {
                 const indices = getRowIndices(y).filter(index => !group.includes(index) && cells[index] != Cell.X)
                 if (indices.length > 0) 
                     return {
@@ -319,7 +334,7 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
                     }
             }
             const x = findSharedColumn(group)
-            if (typeof x == "number") {
+            if (typeof x === "number") {
                 const indices = getColumnIndices(x).filter(index => !group.includes(index) && cells[index] != Cell.X)
                 if (indices.length > 0) 
                     return {
@@ -332,7 +347,7 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
         for (let x = 0; x < size; x++) {
             const column = getColumnIndices(x)
             const groupIndex = findSharedGroup(column)
-            if (typeof groupIndex == 'number') {
+            if (typeof groupIndex === 'number') {
                 const indices = groups[groupIndex].filter(index => !column.includes(index) && cells[index] != Cell.X)
                 if (indices.length > 0)
                     return {
@@ -345,7 +360,7 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
         for (let y = 0; y < size; y++) {
             const row = getRowIndices(y)
             const groupIndex = findSharedGroup(row)
-            if (typeof groupIndex == 'number') {
+            if (typeof groupIndex === 'number') {
                 const indices = groups[groupIndex].filter(index => !row.includes(index) && cells[index] != Cell.X)
                 if (indices.length > 0)
                     return {
@@ -357,14 +372,23 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
         }
         return {indices: [], type: Cell.BLANK, message: 'Unknown'}
     }
+
+    function neighbouringGroupExists(i: number) {
+        const neighbours = getNeighbouringIndices(i)
+        for (const group of groups) {
+            if (group.every(index => cells[index] !== Cell.BLANK || neighbours.includes(index))) return true
+        }
+        return false
+    }
+
     function findSharedRow(group: number[]) {
         const {y} = getCoords(group[0], size)
-        if (group.every(index => cells[index] == Cell.X || getCoords(index, size).y == y)) return y
+        if (group.every(index => cells[index] === Cell.X || getCoords(index, size).y === y)) return y
     }
 
     function findSharedColumn(group: number[]) {
         const {x} = getCoords(group[0], size)
-        if (group.every(index => cells[index] == Cell.X || getCoords(index, size).x == x)) return x
+        if (group.every(index => cells[index] === Cell.X || getCoords(index, size).x === x)) return x
     }
 
     function getRowIndices(y: number) {
@@ -377,16 +401,16 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
 
     function findSharedGroup(line: number[]) {
         const groupIndex = groupIndices[line[0]]
-        if (line.every(index => cells[index] == Cell.X || groupIndices[index] == groupIndex)) return groupIndex
+        if (line.every(index => cells[index] === Cell.X || groupIndices[index] === groupIndex)) return groupIndex
     }
 
     function remainingStars(group: number[]) {
-        return starCount - group.filter(index => cells[index] == Cell.STAR).length
+        return starCount - group.filter(index => cells[index] === Cell.STAR).length
     }
 }
 
 function getStarCount(cells: Cell[]) {
-    return cells.reduce((sum, current) => current == Cell.STAR ? sum + 1 : sum, 0)
+    return cells.reduce((sum, current) => current === Cell.STAR ? sum + 1 : sum, 0)
 }
 
 // Adapted from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/from#sequence_generator_range

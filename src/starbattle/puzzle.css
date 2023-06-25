@@ -26,8 +26,18 @@
     border-bottom: 3px solid black;
 }
 
+.StarBattle-Cell-Indicated {
+    background-color: darkgray;
+}
+
 .StarBattle-Grid {
     display: grid;
+    width: fit-content;
     grid-template-columns: repeat(5, auto);
     border: 8px solid black;
+    margin: 0 auto;
+}
+
+.StarBattle-Puzzle {
+    justify-content: center;
 }

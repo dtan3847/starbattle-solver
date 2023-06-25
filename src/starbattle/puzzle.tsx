@@ -6,7 +6,7 @@ import './puzzle.css'
 enum Cell {
     BLANK,
     STAR,
-    SPACE,
+    X,
 }
 
 enum Mode {
@@ -88,8 +88,8 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
     const columnView = useMemo(() => makeColumnView(cells, size), [cells, size])
     const rowView = useMemo(() => makeRowView(columnView), [columnView])
     const neighbourView = useMemo(() => makeNeighbourView(cells, size), [cells, size])
-    const {groups, groupIndexes} = useMemo(() => makeGroups(), [cells, size, horizontalWalls, verticalWalls])
-    const groupView = useMemo(() => makeGroupView(cells, groups), [groups])
+    const {groups, groupIndices} = useMemo(() => makeGroups(), [size, horizontalWalls, verticalWalls])
+    const groupView = useMemo(() => makeGroupView(cells, groups), [cells, groups])
     const [mode, setMode] = useState(Mode.DRAW)
     
     /**
@@ -168,7 +168,7 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
 
     type GroupOut = {
         groups: number[][]
-        groupIndexes: number[]
+        groupIndices: number[]
     }
     
     function makeGroups(): GroupOut {
@@ -213,11 +213,11 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
             }
         }
         const groups = Array.from(groupsSet)
-        const groupIndexes: number[] = []
+        const groupIndices: number[] = []
         for (let i = 0; i < cells.length; i++) {
-            groupIndexes[i] = groups.indexOf(indexToGroup.get(i)!)
+            groupIndices[i] = groups.indexOf(indexToGroup.get(i)!)
         }
-        return {groups, groupIndexes }
+        return {groups, groupIndices }
     }
 
     function makeCellClickHandler(i: number) {
@@ -244,7 +244,9 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
         }
     }
 
-    function makeCellClassNames(i: number) {
+    const nextStep = mode == Mode.SOLVE ? getNextStep() : { indices: [] }
+
+    function makeCellClassNames(i: number, nextStepIndices: number[]) {
         const { x, y } = getCoords(i, size)
         return classNames({
             'StarBattle-Cell': true,
@@ -252,21 +254,21 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
             'StarBattle-Cell-Border-Top': horizontalWallExists(x, y - 1),
             'StarBattle-Cell-Border-Right': verticalWallExists(x, y),
             'StarBattle-Cell-Border-Bottom': horizontalWallExists(x, y),
+            'StarBattle-Cell-Indicated': nextStepIndices.includes(i)
         })
     }
     
     const typeToSymbol = {
         [Cell.BLANK]: "",
         [Cell.STAR]: "★",
-        [Cell.SPACE]: "✖",
+        [Cell.X]: "✖",
     }
-
     const contentCells = cells.map((cell: Cell, i) => {
         return (
             <StarBattleCell
                 key={i}
-                value={mode === Mode.SOLVE ? typeToSymbol[cell]: groupIndexes[i].toString()}
-                className={makeCellClassNames(i)}
+                value={mode === Mode.SOLVE ? typeToSymbol[cell]: groupIndices[i].toString()}
+                className={makeCellClassNames(i, nextStep.indices!)}
                 onClick={makeCellClickHandler(i)}
             />
         )
@@ -279,12 +281,117 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
             <div className="StarBattle-Grid">
                 {contentCells}
             </div>
+            <div className="StarBattle-Message">
+                {mode == Mode.SOLVE ? JSON.stringify(nextStep) : ''}
+            </div>
         </div>
     )
+
+    type PuzzleStep = {
+        indices?: number[]
+        type?: Cell
+        message?: string
+    }
+    
+    // todo
+    function getNextStep(): PuzzleStep {
+        const ret = {}
+        // apply each rule
+        // return first match
+        for (const group of groups) {
+            if (remainingStars(group) == 0) {
+                const indices = group.filter(index => cells[index] == Cell.BLANK)
+                if (indices.length > 0) 
+                    return {
+                        indices,
+                        type: Cell.X,
+                        message: `No more stars can be placed in this group.`
+                    }
+            }
+            const y = findSharedRow(group)
+            if (typeof y == "number") {
+                const indices = getRowIndices(y).filter(index => !group.includes(index) && cells[index] != Cell.X)
+                if (indices.length > 0) 
+                    return {
+                        indices,
+                        type: Cell.X,
+                        message: `Stars cannot be placed in this row outside this group. Otherwise, there will not be enough stars left in the row within the group.`
+                    }
+            }
+            const x = findSharedColumn(group)
+            if (typeof x == "number") {
+                const indices = getColumnIndices(x).filter(index => !group.includes(index) && cells[index] != Cell.X)
+                if (indices.length > 0) 
+                    return {
+                        indices,
+                        type: Cell.X,
+                        message: `Stars cannot be placed in this column outside this group. Otherwise, there will not be enough stars left in the column within the group.`
+                    }
+            }
+        }
+        for (let x = 0; x < size; x++) {
+            const column = getColumnIndices(x)
+            const groupIndex = findSharedGroup(column)
+            if (typeof groupIndex == 'number') {
+                const indices = groups[groupIndex].filter(index => !column.includes(index) && cells[index] != Cell.X)
+                if (indices.length > 0)
+                    return {
+                        indices,
+                        type: Cell.X,
+                        message: `Stars cannot be placed in this group outside this column. Otherwise, there will not be enough stars in the column.`
+                    }
+            }
+        }
+        for (let y = 0; y < size; y++) {
+            const row = getRowIndices(y)
+            const groupIndex = findSharedGroup(row)
+            if (typeof groupIndex == 'number') {
+                const indices = groups[groupIndex].filter(index => !row.includes(index) && cells[index] != Cell.X)
+                if (indices.length > 0)
+                    return {
+                        indices,
+                        type: Cell.X,
+                        message: `Stars cannot be placed in this group outside this row. Otherwise, there will not be enough stars in the row.`
+                    }
+            }
+        }
+        return {indices: [], type: Cell.BLANK, message: 'Unknown'}
+    }
+    function findSharedRow(group: number[]) {
+        const {y} = getCoords(group[0], size)
+        if (group.every(index => cells[index] == Cell.X || getCoords(index, size).y == y)) return y
+    }
+
+    function findSharedColumn(group: number[]) {
+        const {x} = getCoords(group[0], size)
+        if (group.every(index => cells[index] == Cell.X || getCoords(index, size).x == x)) return x
+    }
+
+    function getRowIndices(y: number) {
+        return range(y * size, (y + 1) * size)
+    }
+
+    function getColumnIndices(x: number) {
+        return range(x, size**2, size)
+    }
+
+    function findSharedGroup(line: number[]) {
+        const groupIndex = groupIndices[line[0]]
+        if (line.every(index => cells[index] == Cell.X || groupIndices[index] == groupIndex)) return groupIndex
+    }
+
+    function remainingStars(group: number[]) {
+        return starCount - group.filter(index => cells[index] == Cell.STAR).length
+    }
 }
 
 function getStarCount(cells: Cell[]) {
     return cells.reduce((sum, current) => current == Cell.STAR ? sum + 1 : sum, 0)
+}
+
+// Adapted from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/from#sequence_generator_range
+function range(start: number, stop: number, step: number = 1) {
+    return Array.from({ length: (stop - 1 - start) / step + 1 }, (_, i) => start + i * step)
 }
 
 function getCoords(i: number, size: number) {

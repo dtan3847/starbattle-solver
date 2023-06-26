@@ -26,8 +26,28 @@
     border-bottom: 3px solid black;
 }
 
-.StarBattle-Cell-Indicated {
+.StarBattle-Cell-Indicated-X {
     background-color: darkgray;
+}
+
+.StarBattle-Cell-Indicated-Star {
+    background-color: yellow;
+}
+
+.StarBattle-Cell-Indicated-Secondary {
+    background-color: lightblue;
+}
+
+.StarBattle-Cell-Partition-1 {
+    background-color: lightcoral;
+}
+
+.StarBattle-Cell-Partition-2 {
+    background-color: lightblue;
+}
+
+.StarBattle-Cell-Partition-3 {
+    background-color: lightgreen;
 }
 
 .StarBattle-Grid {

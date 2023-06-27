@@ -109,6 +109,7 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
         // puzzle must be solvable from this position
         // for each cell with star, surrounding cells must have no star
         // each row, column, group must have at most n stars
+        //todo
         return true
     }
 
@@ -347,13 +348,21 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
     }
     
     function getNextStep(): PuzzleStep {
-        const ret = {}
-        // apply each rule
-        // return first match
+        if (!isSolvable()) return {  message: 'Unsolvable' }
+        if (isSolved()) return {  message: 'Solved' }
+        // apply each rule and return first match
+        // for all groups, rows, columns, return if remainingStars == remainingSpaces
+        let nextStep = processLastSpacesRule(groups, "group")
+        if (nextStep) return nextStep
+        nextStep = processLastSpacesRule(rows, "row")
+        if (nextStep) return nextStep
+        nextStep = processLastSpacesRule(columns, "column")
+        if (nextStep) return nextStep
+
         for (const [i, cell] of cells.entries()) {
             if (cell === Cell.X) continue
             if (cell !== Cell.STAR) continue
-            const indices = getNeighbouringIndices(i).filter(index => cells[index] != Cell.X)
+            const indices = getNeighbouringIndices(i).filter(index => cells[index] !== Cell.X)
             if (indices.length === 0) continue
             return {
                 indices,
@@ -361,7 +370,8 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
                 message: `Stars cannot be placed in cells neighbouring a star (including diagonals).`
             }
         }
-        let nextStep = processNoStarsLeftRule(groups, "group")
+
+        nextStep = processNoStarsLeftRule(groups, "group")
         if (nextStep) return nextStep
         nextStep = processNoStarsLeftRule(rows, "row")
         if (nextStep) return nextStep
@@ -411,7 +421,7 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
                 if (indices.length === 0) continue
                 return {
                     indices,
-                    otherIndices: group,
+                    otherIndices: row.filter(index => group.includes(index)),
                     type: Cell.X,
                     message: `Stars cannot be placed in this row outside this group. Otherwise, there will not be enough stars left in the row within the group.`
                 }
@@ -423,7 +433,7 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
                 if (indices.length === 0) continue
                 return {
                     indices,
-                    otherIndices: group,
+                    otherIndices: column.filter(index => group.includes(index)),
                     type: Cell.X,
                     message: `Stars cannot be placed in this column outside this group. Otherwise, there will not be enough stars left in the column within the group.`
                 }
@@ -436,6 +446,19 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
         nextStep = processBlockRule(columnPartitions, "column")
         if (nextStep) return nextStep
         return {indices: [], type: Cell.BLANK, message: 'Unknown'}
+    }
+
+    function processLastSpacesRule(groups: number[][], name: string): PuzzleStep | undefined {
+        for (const group of groups) {
+            const indices = group.filter(index => cells[index] === Cell.BLANK)
+            if (indices.length === 0) continue
+            if (getRemainingStarCount(group) === indices.length)
+                return {
+                    indices,
+                    type: Cell.STAR,
+                    message: `The remaining stars in this ${name} can only be placed here.`
+                }
+        }
     }
 
     function processNoStarsLeftRule(groups: number[][], name: string): PuzzleStep | undefined {

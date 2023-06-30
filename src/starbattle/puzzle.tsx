@@ -4,13 +4,11 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Slider from '@mui/material/Slider';
 
+import { Cell, PuzzleStep } from './types'
+import { getNextStep, getCoords, getIndex, getNeighbouringIndices, partitionCells } from './utils'
+
 import './puzzle.css'
 
-enum Cell {
-    BLANK,
-    STAR,
-    X,
-}
 
 enum Mode {
     DRAW,
@@ -55,28 +53,22 @@ export default function StarBattlePuzzle(): JSX.Element {
     const verticalWallsToDisplay = resizingVerticalWalls || verticalWalls
 
     const neighbourView = useMemo(() => makeNeighbourView(), [cells, size])
-    const {groups, groupIndices} = useMemo(() => makeGroups(), [displaySize, horizontalWallsToDisplay, verticalWallsToDisplay])
+    const {groups, cellIndexToGroupIndex} = useMemo(() => makeGroups(), [displaySize, horizontalWallsToDisplay, verticalWallsToDisplay])
     const [mode, setMode] = useState(Mode.DRAW)
     const rows = useMemo(() => range(0, displaySize).map(y => getRowIndices(y)), [displaySize])
     const columns = useMemo(() => range(0, displaySize).map(x => getColumnIndices(x)), [displaySize])
     
 
     const cellPartitionResidue: number[] = []
-    const groupPartitions: number[][][] = []
-    for (const group of groups) {
-        const partitions = partitionCells(group.filter(index => cells[index] === Cell.BLANK))
-        groupPartitions.push(partitions)
-    }
-    const rowPartitions: number[][][] = []
-    for (const row of rows) {
-        const partitions = partitionCells(row.filter(index => cells[index] === Cell.BLANK))
-        rowPartitions.push(partitions)
-    }
-    const columnPartitions: number[][][] = []
-    for (const column of columns) {
-        const partitions = partitionCells(column.filter(index => cells[index] === Cell.BLANK))
-        columnPartitions.push(partitions)
-    }
+    const groupPartitions: number[][][] = groups.map(group => (
+        partitionCells(size, group.filter(index => cells[index] === Cell.BLANK))
+    ))
+    const rowPartitions: number[][][] = rows.map(group => (
+        partitionCells(size, group.filter(index => cells[index] === Cell.BLANK))
+    ))
+    const columnPartitions: number[][][] = columns.map(group => (
+        partitionCells(size, group.filter(index => cells[index] === Cell.BLANK))
+    ))
     if (mode === Mode.GROUP_PARTITION) {
         for (const partitions of groupPartitions) {
             partitions.forEach((partition, i) => {
@@ -97,7 +89,7 @@ export default function StarBattlePuzzle(): JSX.Element {
         }
     }
 
-    const nextStep = mode === Mode.SOLVE ? getNextStep() : {}
+    const nextStep = getNextStepIfSolving()
     
     const typeToSymbol = {
         [Cell.BLANK]: "",
@@ -106,7 +98,7 @@ export default function StarBattlePuzzle(): JSX.Element {
     }
     const contentCells = cellsToDisplay.map((cell: Cell, i) => {
         const value = mode === Mode.DRAW
-            ? (groupIndices[i] !== undefined ? groupIndices[i].toString() : 'undefined')
+            ? (cellIndexToGroupIndex[i] !== undefined ? cellIndexToGroupIndex[i].toString() : 'undefined')
             : typeToSymbol[cell]
         return (
             <StarBattleCell
@@ -166,32 +158,16 @@ export default function StarBattlePuzzle(): JSX.Element {
         </div>
     )
 
-    function makeNeighbourView(): Cell[][] {
-        return cells.map((_, i) => getNeighbouringIndices(i).map(index => cells[index]))
-    }
-    
-    function getNeighbouringIndices(i: number): number[] {
-        const { x, y } = getCoords(i, size)
-        return [
-            [x - 1, y - 1],
-            [x, y - 1],
-            [x + 1, y - 1],
-            [x - 1, y],
-            [x + 1, y],
-            [x - 1, y + 1],
-            [x, y + 1],
-            [x + 1, y + 1],
-        ].filter(([x, y]) => x >= 0 && x < size && y >= 0 && y < size)
-        .map(([x, y]) => getIndex(x, y, size))
+    function getNextStepIfSolving() {
+        if (resizingCells !== null) return { message: 'Resizing' }
+        if (!isSolvable()) return {  message: 'Unsolvable' }
+        if (isSolved()) return {  message: 'Solved' }
+        if (mode === Mode.SOLVE) return getNextStep(cells, size, starCount, groups, cellIndexToGroupIndex, rows, columns)
+        return {}
     }
 
-    function getSharedNeighbour(indices: number[]): number[] {
-        let neighbours = getNeighbouringIndices(indices[0])
-        for (const i of indices.slice(1)) {
-            let otherNeighbours = getNeighbouringIndices(i)
-            neighbours = neighbours.filter(index => otherNeighbours.includes(index))
-        }
-        return neighbours
+    function makeNeighbourView(): Cell[][] {
+        return cells.map((_, i) => getNeighbouringIndices(size, i).map(index => cells[index]))
     }
     
     /**
@@ -308,7 +284,7 @@ export default function StarBattlePuzzle(): JSX.Element {
 
     type GroupOut = {
         groups: number[][]
-        groupIndices: number[]
+        cellIndexToGroupIndex: number[]
     }
     
     function makeGroups(): GroupOut {
@@ -353,11 +329,11 @@ export default function StarBattlePuzzle(): JSX.Element {
             }
         }
         const groups = Array.from(groupsSet)
-        const groupIndices: number[] = []
+        const cellIndexToGroupIndex: number[] = []
         for (let i = 0; i < displaySize**2; i++) {
-            groupIndices[i] = groups.indexOf(indexToGroup.get(i)!)
+            cellIndexToGroupIndex[i] = groups.indexOf(indexToGroup.get(i)!)
         }
-        return {groups, groupIndices}
+        return {groups, cellIndexToGroupIndex}
     }
 
     function makeCellClickHandler(i: number) {
@@ -401,190 +377,6 @@ export default function StarBattlePuzzle(): JSX.Element {
             'StarBattle-Cell-Partition-3': mode >= Mode.GROUP_PARTITION && cellPartitionResidue[i] === 2,
         })
     }
-    
-    type PuzzleStep = {
-        indices?: number[]
-        otherIndices?: number[]
-        type?: Cell
-        message?: string
-    }
-    
-    function getNextStep(): PuzzleStep {
-        if (resizingCells !== null) return { message: 'Resizing' }
-        if (!isSolvable()) return {  message: 'Unsolvable' }
-        if (isSolved()) return {  message: 'Solved' }
-        // apply each rule and return first match
-        // for all groups, rows, columns, return if remainingStars == remainingSpaces
-        let nextStep = processLastSpacesRule(groups, "group")
-        if (nextStep) return nextStep
-        nextStep = processLastSpacesRule(rows, "row")
-        if (nextStep) return nextStep
-        nextStep = processLastSpacesRule(columns, "column")
-        if (nextStep) return nextStep
-
-        for (const [i, cell] of cells.entries()) {
-            if (cell === Cell.X) continue
-            if (cell !== Cell.STAR) continue
-            const indices = getNeighbouringIndices(i).filter(index => cells[index] !== Cell.X)
-            if (indices.length === 0) continue
-            return {
-                indices,
-                type: Cell.X,
-                message: `Stars cannot be placed in cells neighbouring a star (including diagonals).`
-            }
-        }
-
-        nextStep = processNoStarsLeftRule(groups, "group")
-        if (nextStep) return nextStep
-        nextStep = processNoStarsLeftRule(rows, "row")
-        if (nextStep) return nextStep
-        nextStep = processNoStarsLeftRule(columns, "column")
-        if (nextStep) return nextStep
-        
-        for (const [i, cell] of cells.entries()) {
-            if (cell === Cell.X) continue
-            const group = findNeighbouringGroup(i)
-            if (!group) continue
-            return {
-                indices: [i],
-                otherIndices: group,
-                type: Cell.X,
-                message: `Stars cannot be placed here. Otherwise, no cells can be placed within this group.`
-            }
-        }
-        for (const row of rows) {
-            const groupIndex = findSharedGroup(row)
-            if (typeof groupIndex !== 'number') continue
-            const indices = groups[groupIndex].filter(index => !row.includes(index) && cells[index] != Cell.X)
-            if (indices.length === 0) continue
-            return {
-                indices,
-                otherIndices: row,
-                type: Cell.X,
-                message: `Stars cannot be placed in this group outside this row. Otherwise, there will not be enough stars in the row.`
-            }
-        }
-        for (const column of columns) {
-            const groupIndex = findSharedGroup(column)
-            if (typeof groupIndex !== 'number') continue
-            const indices = groups[groupIndex].filter(index => !column.includes(index) && cells[index] != Cell.X)
-            if (indices.length === 0) continue
-            return {
-                indices,
-                otherIndices: column,
-                type: Cell.X,
-                message: `Stars cannot be placed in this group outside this column. Otherwise, there will not be enough stars in the column.`
-            }
-        }
-        for (const group of groups) {
-            const y = findSharedRow(group)
-            if (typeof y === "number") {
-                const row = getRowIndices(y)
-                const indices = row.filter(index => !group.includes(index) && cells[index] != Cell.X)
-                if (indices.length === 0) continue
-                return {
-                    indices,
-                    otherIndices: row.filter(index => group.includes(index)),
-                    type: Cell.X,
-                    message: `Stars cannot be placed in this row outside this group. Otherwise, there will not be enough stars left in the row within the group.`
-                }
-            }
-            const x = findSharedColumn(group)
-            if (typeof x === "number") {
-                const column = getColumnIndices(x)
-                const indices = column.filter(index => !group.includes(index) && cells[index] != Cell.X)
-                if (indices.length === 0) continue
-                return {
-                    indices,
-                    otherIndices: column.filter(index => group.includes(index)),
-                    type: Cell.X,
-                    message: `Stars cannot be placed in this column outside this group. Otherwise, there will not be enough stars left in the column within the group.`
-                }
-            }
-        }
-        nextStep = processBlockRule(groupPartitions, "group")
-        if (nextStep) return nextStep
-        nextStep = processBlockRule(rowPartitions, "row")
-        if (nextStep) return nextStep
-        nextStep = processBlockRule(columnPartitions, "column")
-        if (nextStep) return nextStep
-        return {indices: [], type: Cell.BLANK, message: 'Unknown'}
-    }
-
-    function processLastSpacesRule(groups: number[][], name: string): PuzzleStep | undefined {
-        for (const group of groups) {
-            const indices = group.filter(index => cells[index] === Cell.BLANK)
-            if (indices.length === 0) continue
-            if (getRemainingStarCount(group) === indices.length)
-                return {
-                    indices,
-                    type: Cell.STAR,
-                    message: `The remaining stars in this ${name} can only be placed here.`
-                }
-        }
-    }
-
-    function processNoStarsLeftRule(groups: number[][], name: string): PuzzleStep | undefined {
-        for (const group of groups) {
-            if (getRemainingStarCount(group) === 0) {
-                const indices = group.filter(index => cells[index] === Cell.BLANK)
-                if (indices.length === 0) continue
-                return {
-                    indices,
-                    type: Cell.X,
-                    message: `No more stars can be placed in this ${name}.`
-                }
-            }
-        }
-    }
-
-    function processBlockRule(partitionsList: number[][][], name: string): PuzzleStep | undefined {
-        for (const [i, partitions] of partitionsList.entries()) {
-            const remainingStarCount = getRemainingStarCount(groups[i])
-            if (partitions.length !== remainingStarCount) continue
-            const multipleLeft = remainingStarCount > 1
-            const baseMessage = `There can be at most 1 star in each 2x2 square. When the remaining space 
-                within this ${name} is split into blocks at most 2x2 in size, 
-                there ${multipleLeft ? 'are' : 'is'} only ${remainingStarCount} square${multipleLeft ? 's' : ''}, 
-                which is equal to the number of remaining stars. 
-                Therefore, each block must contain a star.`.replaceAll('\n', '')
-            for (const partition of partitions) {
-                if (partition.length === 1)
-                    return {
-                        indices: partition,
-                        type: Cell.STAR,
-                        message: baseMessage + ` This block only has one space, so it must be a star`
-                    }
-                const indices = getSharedNeighbour(partition).filter(index => cells[index] != Cell.X)
-                if (indices.length === 0) continue
-                return {
-                    indices,
-                    otherIndices: partition,
-                    type: Cell.X,
-                    message: baseMessage + ` If stars are placed here, there will be no place to put a star in this block`
-                }
-            }
-        }
-    }
-
-    function findNeighbouringGroup(i: number): number[] | undefined {
-        const neighbours = getNeighbouringIndices(i)
-        for (let group of groups) {
-            group = group.filter(index => cells[index] === Cell.BLANK)
-            if (group.length === 0) continue
-            if (group.every(index => neighbours.includes(index))) return group
-        }
-    }
-
-    function findSharedRow(group: number[]) {
-        const {y} = getCoords(group[0], size)
-        if (group.every(index => cells[index] === Cell.X || getCoords(index, size).y === y)) return y
-    }
-
-    function findSharedColumn(group: number[]) {
-        const {x} = getCoords(group[0], size)
-        if (group.every(index => cells[index] === Cell.X || getCoords(index, size).x === x)) return x
-    }
 
     function getRowIndices(y: number) {
         return range(y * size, (y + 1) * size)
@@ -593,46 +385,6 @@ export default function StarBattlePuzzle(): JSX.Element {
     function getColumnIndices(x: number) {
         return range(x, size**2, size)
     }
-
-    function findSharedGroup(line: number[]) {
-        const groupIndex = groupIndices[line[0]]
-        if (line.every(index => cells[index] === Cell.X || groupIndices[index] === groupIndex)) return groupIndex
-    }
-
-    function getRemainingStarCount(group: number[]) {
-        return starCount - group.filter(index => cells[index] === Cell.STAR).length
-    }
-
-    // Any 2x2 block can contain at most one star
-    function partitionCells(indices: number[]): number[][] {
-        const partitions: number[][] = []
-        // for each index
-        for (const i of indices) {
-            // if it fits into existing partitions, add it
-            let foundExisting = false
-            for (const partition of partitions) {
-                if (withinSquare(i, partition)) {
-                    partition.push(i)
-                    foundExisting = true
-                    break
-                }
-            }
-            // if not, make a new partition
-            if (!foundExisting) {
-                partitions.push([i])
-            }
-        }
-        // todo: guarantee that # of partitions is minimalized
-        return partitions
-    }
-
-    function withinSquare(i: number, group: number[]) {
-        const { x, y } = getCoords(i, size)
-        return group.every(index => {
-            const {x: otherX, y: otherY} = getCoords(index, size)
-            return (Math.abs(x - otherX) <= 1 && Math.abs(y - otherY) <= 1)
-        })
-    }
 }
 
 function getStarCount(cells: Cell[]) {
@@ -640,21 +392,10 @@ function getStarCount(cells: Cell[]) {
 }
 
 // Adapted from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/from#sequence_generator_range
-function range(start: number, stop: number, step: number = 1) {
+function range(start: number, stop: number, step: number = 1): number[] {
     return Array.from({ length: (stop - 1 - start) / step + 1 }, (_, i) => start + i * step)
 }
 
-function getCoords(i: number, size: number) {
-    return {
-        x: i % size,
-        y: Math.floor(i / size),
-    }
-}
-
-function getIndex(x: number, y: number, size: number) {
-    return y * size + x
-}
-
-function outOfBounds(x: number, y: number, size: number) {
+function outOfBounds(x: number, y: number, size: number): boolean {
     return x < 0 || x >= size || y < 0 || y >= size 
 }

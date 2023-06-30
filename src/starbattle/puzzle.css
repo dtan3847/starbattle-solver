@@ -31,7 +31,7 @@
 }
 
 .StarBattle-Cell-Indicated-Star {
-    background-color: yellow;
+    background-color: gold;
 }
 
 .StarBattle-Cell-Indicated-Secondary {
@@ -53,11 +53,24 @@
 .StarBattle-Grid {
     display: grid;
     width: fit-content;
-    grid-template-columns: repeat(5, auto);
     border: 8px solid black;
+    margin: 0 auto;
+}
+
+.StarBattle-Puzzle>*{
     margin: 0 auto;
 }
 
 .StarBattle-Puzzle {
     justify-content: center;
+    max-width: 80%;
+}
+
+.StarBattle-Message {
+    width: fit-content;
+    max-width: 100%;
+}
+
+#StarBattle-SliderBox {
+    max-width: 500px;
 }

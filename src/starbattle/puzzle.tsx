@@ -1,5 +1,8 @@
 import { useMemo, useState } from "react";
 import classNames from 'classnames';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Slider from '@mui/material/Slider';
 
 import './puzzle.css'
 
@@ -35,45 +38,134 @@ function StarBattleCell({ value, className, onClick }: CellProps): JSX.Element {
     )
 }
 
-export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Element {
+// TODO: store walls as map to avoid having to recreate them when resizing
+export default function StarBattlePuzzle(): JSX.Element {
+    const [size, setSize] = useState(8)
+    const [starCount, setStarCount] = useState(1)
     const [cells, setCells] = useState(Array(size**2).fill(Cell.BLANK))
     const [horizontalWalls, setHorizontalWalls] = useState(Array(size*(size-1)).fill(false))
     const [verticalWalls, setVerticalWalls] = useState(Array(size*(size-1)).fill(false))
-    const columnView = useMemo(() => makeColumnView(), [cells, size])
-    const rowView = useMemo(() => makeRowView(columnView), [columnView])
-    const neighbourView = useMemo(() => makeNeighbourView(), [cells, size])
-    const {groups, groupIndices} = useMemo(() => makeGroups(), [size, horizontalWalls, verticalWalls])
-    const groupView = useMemo(() => makeGroupView(), [cells, groups])
-    const [mode, setMode] = useState(Mode.DRAW)
-    const rows = useMemo(() => range(0, size).map(y => getRowIndices(y)), [size])
-    const columns = useMemo(() => range(0, size).map(x => getColumnIndices(x)), [size])
+    const [displaySize, setDisplaySize] = useState(size)
+    const [resizingCells, setResizingCells] = useState<Cell[] | null>(null)
+    const [resizingHorizontalWalls, setResizingHorizontalWalls] = useState<boolean[] | null>(null)
+    const [resizingVerticalWalls, setResizingVerticalWalls] = useState<boolean[] | null>(null)
 
-    function makeColumnView(): Cell[][] {
-        const columns = []
-        for (let x = 0; x < size; x++) {
-            const column: Cell[] = []
-            columns.push(column)
-            for (let y = 0; y < size; y++) {
-                const i = getIndex(x, y, size)
-                column.push(cells[i])
-            }
+    const cellsToDisplay = resizingCells || cells
+    const horizontalWallsToDisplay = resizingHorizontalWalls || horizontalWalls
+    const verticalWallsToDisplay = resizingVerticalWalls || verticalWalls
+
+    const neighbourView = useMemo(() => makeNeighbourView(), [cells, size])
+    const {groups, groupIndices} = useMemo(() => makeGroups(), [displaySize, horizontalWallsToDisplay, verticalWallsToDisplay])
+    const [mode, setMode] = useState(Mode.DRAW)
+    const rows = useMemo(() => range(0, displaySize).map(y => getRowIndices(y)), [displaySize])
+    const columns = useMemo(() => range(0, displaySize).map(x => getColumnIndices(x)), [displaySize])
+    
+
+    const cellPartitionResidue: number[] = []
+    const groupPartitions: number[][][] = []
+    for (const group of groups) {
+        const partitions = partitionCells(group.filter(index => cells[index] === Cell.BLANK))
+        groupPartitions.push(partitions)
+    }
+    const rowPartitions: number[][][] = []
+    for (const row of rows) {
+        const partitions = partitionCells(row.filter(index => cells[index] === Cell.BLANK))
+        rowPartitions.push(partitions)
+    }
+    const columnPartitions: number[][][] = []
+    for (const column of columns) {
+        const partitions = partitionCells(column.filter(index => cells[index] === Cell.BLANK))
+        columnPartitions.push(partitions)
+    }
+    if (mode === Mode.GROUP_PARTITION) {
+        for (const partitions of groupPartitions) {
+            partitions.forEach((partition, i) => {
+                partition.forEach(cellIndex => cellPartitionResidue[cellIndex] = i % 3)
+            })
         }
-        return columns
-    }
-    
-    function makeRowView(columns: Cell[][]): Cell[][] {
-        const size = columns.length
-        const rows = []
-        for (let y = 0; y < size; y++) {
-            rows.push(columns.map(column => column[y]))
+    } else if (mode === Mode.ROW_PARTITION) {
+        for (const partitions of rowPartitions) {
+            partitions.forEach((partition, i) => {
+                partition.forEach(cellIndex => cellPartitionResidue[cellIndex] = i % 3)
+            })
         }
-        return rows
+    } else if (mode === Mode.COLUMN_PARTITION) {
+        for (const partitions of columnPartitions) {
+            partitions.forEach((partition, i) => {
+                partition.forEach(cellIndex => cellPartitionResidue[cellIndex] = i % 3)
+            })
+        }
     }
+
+    const nextStep = mode === Mode.SOLVE ? getNextStep() : {}
     
-    function makeGroupView(): Cell[][] {
-        return groups.map(group => group.map(index => cells[index]))
+    const typeToSymbol = {
+        [Cell.BLANK]: "",
+        [Cell.STAR]: "★",
+        [Cell.X]: "✖",
     }
-    
+    const contentCells = cellsToDisplay.map((cell: Cell, i) => {
+        const value = mode === Mode.DRAW
+            ? (groupIndices[i] !== undefined ? groupIndices[i].toString() : 'undefined')
+            : typeToSymbol[cell]
+        return (
+            <StarBattleCell
+                key={i}
+                value={value}
+                className={makeCellClassNames(i, nextStep)}
+                onClick={makeCellClickHandler(i)}
+            />
+        )
+    })
+    const sliderBox = mode === Mode.DRAW
+        ? (
+            <Box id="StarBattle-SliderBox">
+                Size
+                <Slider
+                    valueLabelDisplay="auto"
+                    min={5}
+                    max={15}
+                    value={displaySize}
+                    onChange={onSizeChange}
+                    onChangeCommitted={onSizeChangeCommitted}
+                />
+                Star Count
+                <Slider
+                    onChange={(event, value) => setStarCount(typeof value === "number" ? value : value[value.length - 1])}
+                    valueLabelDisplay="auto"
+                    min={1}
+                    max={3}
+                    value={starCount}
+                />
+            </Box>
+        )
+        : ''
+    return (
+        <div className="StarBattle-Puzzle">
+            <Button
+                variant="contained"
+                onClick={() => setMode((mode + 1) % 5)}
+            >
+                Mode: {Mode[mode]}
+            </Button>
+            {sliderBox}
+            <div
+                className="StarBattle-Grid"
+                style={{
+                    gridTemplateColumns: `repeat(${displaySize}, auto)`
+                }}
+            >
+                {contentCells}
+            </div>
+            <Button variant="contained" onClick={handleClearClick}>
+                Clear
+            </Button>
+            <div className="StarBattle-Message">
+                {mode === Mode.SOLVE ? JSON.stringify(nextStep) : ''}
+            </div>
+        </div>
+    )
+
     function makeNeighbourView(): Cell[][] {
         return cells.map((_, i) => getNeighbouringIndices(i).map(index => cells[index]))
     }
@@ -126,21 +218,16 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
             }
         }
         // each row, column, group must have exactly n stars
-        for (const row of rowView) {
-            if (getStarCount(row) != starCount) return false
+        for (const row of rows) {
+            if (getStarCount(row.map(i => cells[i])) != starCount) return false
         }
-        for (const column of columnView) {
-            if (getStarCount(column) != starCount) return false
+        for (const column of columns) {
+            if (getStarCount(column.map(i => cells[i])) != starCount) return false
         }
-        for (const group of groupView) {
-            if (getStarCount(group) != starCount) return false
+        for (const group of groups) {
+            if (getStarCount(group.map(i => cells[i])) != starCount) return false
         }
         return true
-    }
-
-    function getCell(x: number, y: number): Cell | undefined {
-        if (x < 0 || x >= size || y < 0 || y >= size) return
-        return columnView[x][y]
     }
 
     function setCell(i: number, newValue: Cell) {
@@ -149,10 +236,52 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
         setCells(newCells)
     }
 
+    function handleClearClick() {
+        if (mode === Mode.DRAW) {
+            setHorizontalWalls(horizontalWalls.slice().fill(false))
+            setVerticalWalls(verticalWalls.slice().fill(false))
+        } else {
+            setCells(Array(size**2).fill(Cell.BLANK))
+        }
+    }
+
+    function onSizeChange(event: Event, value: number | number[]) {
+        const newSize: number = typeof value == "number" ? value : value[value.length - 1]
+        setDisplaySize(newSize)
+        const newCells: Cell[] = Array(newSize**2).fill(Cell.BLANK).map((_, i) => {
+            const {x, y} = getCoords(i, newSize)
+            return outOfBounds(x, y, size) ? Cell.BLANK : cells[getIndex(x, y, size)]
+        })
+        const newHorizontalWalls: boolean[] = Array(newSize*(newSize - 1)).fill(false).map((_, i) => {
+            const {x, y} = getCoords(i, newSize)
+            return outOfBounds(x, y, size) ? false : horizontalWalls[getIndex(x, y, size)]
+        })
+        const newVerticalWalls: boolean[] = Array(newSize*(newSize - 1)).fill(false).map((_, i) => {
+            const {x, y} = getCoords(i, newSize - 1)
+            return outOfBounds(x, y, size - 1) ? false : verticalWalls[getIndex(x, y, size - 1)]
+        })
+        setResizingCells(newCells)
+        setResizingHorizontalWalls(newHorizontalWalls)
+        setResizingVerticalWalls(newVerticalWalls)
+    }
+
+    function onSizeChangeCommitted(event: Event | React.SyntheticEvent<Element, Event>, value: number | number[]) {
+        const newSize = typeof value == "number" ? value : value[value.length - 1]
+        if (newSize !== size && resizingCells !== null) {
+            setSize(newSize)
+            setCells(resizingCells!)
+            setHorizontalWalls(resizingHorizontalWalls!)
+            setVerticalWalls(resizingVerticalWalls!)
+        }
+        setResizingCells(null)
+        setResizingHorizontalWalls(null)
+        setResizingVerticalWalls(null)
+    }
+
     // horizontal walls are in size columns, size-1 rows
     function horizontalWallExists(x: number, y: number): boolean  {
-        if (x < 0 || x >= size || y < 0 || y >= size - 1) return false
-        return horizontalWalls[getIndex(x, y, size)]
+        if (x < 0 || x >= displaySize || y < 0 || y >= displaySize - 1) return false
+        return horizontalWallsToDisplay[getIndex(x, y, displaySize)]
     }
 
     function toggleHorizontalWall(x: number, y: number) {
@@ -165,8 +294,8 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
 
     // vertical walls are in size-1 columns, size rows
     function verticalWallExists(x: number, y: number): boolean {
-        if (x < 0 || x >= size - 1 || y < 0 || y >= size) return false
-        return verticalWalls[getIndex(x, y, size - 1)]
+        if (x < 0 || x >= displaySize - 1 || y < 0 || y >= displaySize) return false
+        return verticalWallsToDisplay[getIndex(x, y, displaySize - 1)]
     }
 
     function toggleVerticalWall(x: number, y: number) {
@@ -207,7 +336,7 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
         }
 
         // for each cell
-        for (let i = 0; i < cells.length; i++) {
+        for (let i = 0; i < displaySize**2; i++) {
             // if not in group, create new group and add to it
             if (!indexToGroup.has(i)) {
                 const newGroup: number[] = []
@@ -215,32 +344,32 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
                 setGroup(i, newGroup)
             }
             // update neighbour (down/right) if no wall:
-            const { x, y } = getCoords(i, size)
-            if (x < size - 1 && !verticalWallExists(x, y)) {
-                updateNeighbour(i, getIndex(x + 1, y, size))
+            const { x, y } = getCoords(i, displaySize)
+            if (x < displaySize - 1 && !verticalWallExists(x, y)) {
+                updateNeighbour(i, getIndex(x + 1, y, displaySize))
             }
-            if (y < size - 1 && !horizontalWallExists(x, y)) {
-                updateNeighbour(i, getIndex(x, y + 1, size))
+            if (y < displaySize - 1 && !horizontalWallExists(x, y)) {
+                updateNeighbour(i, getIndex(x, y + 1, displaySize))
             }
         }
         const groups = Array.from(groupsSet)
         const groupIndices: number[] = []
-        for (let i = 0; i < cells.length; i++) {
+        for (let i = 0; i < displaySize**2; i++) {
             groupIndices[i] = groups.indexOf(indexToGroup.get(i)!)
         }
-        return {groups, groupIndices }
+        return {groups, groupIndices}
     }
 
     function makeCellClickHandler(i: number) {
         const { x, y } = getCoords(i, size)
         const margin = 7 // px
         return (event: React.MouseEvent<HTMLElement>) => {
+            if (resizingCells !== null) return
             if (event.target instanceof HTMLElement) {
                 event.preventDefault()
                 const { clientX, clientY, target: { offsetLeft, offsetTop, offsetWidth, offsetHeight }} = event
                 // console.log(x, y, clientX, clientY, offsetLeft, offsetTop, offsetLeft + offsetWidth, offsetTop + offsetHeight)
                 if (mode === Mode.SOLVE) {
-                    console.log(cells[i], cells[i] + 1, (cells[i] + 1) % 3, cells[i] + 2, (cells[i] + 2) % 3)
                     // left click to cycle symbol forward, right click to cycle back
                     if (event.type === "click") setCell(i, (cells[i] + 1) % 3)
                     else if (event.type === "contextmenu") setCell(i, (cells[i] + 2) % 3)
@@ -255,46 +384,8 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
         }
     }
 
-    const cellPartitionResidue: number[] = []
-    const groupPartitions: number[][][] = []
-    for (const group of groups) {
-        const partitions = partitionCells(group.filter(index => cells[index] === Cell.BLANK))
-        groupPartitions.push(partitions)
-    }
-    const rowPartitions: number[][][] = []
-    for (const row of rows) {
-        const partitions = partitionCells(row.filter(index => cells[index] === Cell.BLANK))
-        rowPartitions.push(partitions)
-    }
-    const columnPartitions: number[][][] = []
-    for (const column of columns) {
-        const partitions = partitionCells(column.filter(index => cells[index] === Cell.BLANK))
-        columnPartitions.push(partitions)
-    }
-    if (mode === Mode.GROUP_PARTITION) {
-        for (const partitions of groupPartitions) {
-            partitions.forEach((partition, i) => {
-                partition.forEach(cellIndex => cellPartitionResidue[cellIndex] = i % 3)
-            })
-        }
-    } else if (mode === Mode.ROW_PARTITION) {
-        for (const partitions of rowPartitions) {
-            partitions.forEach((partition, i) => {
-                partition.forEach(cellIndex => cellPartitionResidue[cellIndex] = i % 3)
-            })
-        }
-    } else if (mode === Mode.COLUMN_PARTITION) {
-        for (const partitions of columnPartitions) {
-            partitions.forEach((partition, i) => {
-                partition.forEach(cellIndex => cellPartitionResidue[cellIndex] = i % 3)
-            })
-        }
-    }
-
-    const nextStep = mode === Mode.SOLVE ? getNextStep() : {}
-
     function makeCellClassNames(i: number, nextStep: PuzzleStep) {
-        const { x, y } = getCoords(i, size)
+        const { x, y } = getCoords(i, displaySize)
         return classNames({
             'StarBattle-Cell': true,
             'StarBattle-Cell-Border-Left': verticalWallExists(x - 1, y),
@@ -311,35 +402,6 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
         })
     }
     
-    const typeToSymbol = {
-        [Cell.BLANK]: "",
-        [Cell.STAR]: "★",
-        [Cell.X]: "✖",
-    }
-    const contentCells = cells.map((cell: Cell, i) => {
-        return (
-            <StarBattleCell
-                key={i}
-                value={mode === Mode.DRAW ? groupIndices[i].toString() : typeToSymbol[cell] }
-                className={makeCellClassNames(i, nextStep)}
-                onClick={makeCellClickHandler(i)}
-            />
-        )
-    })
-    return (
-        <div className="StarBattle-Puzzle">
-            <div onClick={() => setMode((mode + 1) % 5)}>
-                Mode: {Mode[mode]}
-            </div>
-            <div className="StarBattle-Grid">
-                {contentCells}
-            </div>
-            <div className="StarBattle-Message">
-                {mode === Mode.SOLVE ? JSON.stringify(nextStep) : ''}
-            </div>
-        </div>
-    )
-
     type PuzzleStep = {
         indices?: number[]
         otherIndices?: number[]
@@ -348,6 +410,7 @@ export default function StarBattlePuzzle({ size = 5, starCount = 1 }): JSX.Eleme
     }
     
     function getNextStep(): PuzzleStep {
+        if (resizingCells !== null) return { message: 'Resizing' }
         if (!isSolvable()) return {  message: 'Unsolvable' }
         if (isSolved()) return {  message: 'Solved' }
         // apply each rule and return first match
@@ -590,4 +653,8 @@ function getCoords(i: number, size: number) {
 
 function getIndex(x: number, y: number, size: number) {
     return y * size + x
+}
+
+function outOfBounds(x: number, y: number, size: number) {
+    return x < 0 || x >= size || y < 0 || y >= size 
 }

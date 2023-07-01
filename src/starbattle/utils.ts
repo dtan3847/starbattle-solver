@@ -40,28 +40,12 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
             message: `Stars cannot be placed here. Otherwise, no cells can be placed within this group.`
         }
     }
-    for (const row of rows) {
-        const groupIndex = findSharedGroup(row)
-        if (typeof groupIndex !== 'number') continue
-        const indices = groups[groupIndex].filter(index => !row.includes(index) && cells[index] != Cell.X)
-        if (indices.length === 0) continue
-        return {
-            indices,
-            otherIndices: row,
-            type: Cell.X,
-            message: `Stars cannot be placed in this group outside this row. Otherwise, there will not be enough stars in the row.`
-        }
-    }
-    for (const column of columns) {
-        const groupIndex = findSharedGroup(column)
-        if (typeof groupIndex !== 'number') continue
-        const indices = groups[groupIndex].filter(index => !column.includes(index) && cells[index] != Cell.X)
-        if (indices.length === 0) continue
-        return {
-            indices,
-            otherIndices: column,
-            type: Cell.X,
-            message: `Stars cannot be placed in this group outside this column. Otherwise, there will not be enough stars in the column.`
+    for (const lineCount of range(1, size)) {
+        for (const start of range(0, size - lineCount + 1)) {
+            nextStep = processGroupsFillLinesRule(rows.slice(start, start + lineCount), "row")
+            if (nextStep) return nextStep
+            nextStep = processGroupsFillLinesRule(columns.slice(start, start + lineCount), "column")
+            if (nextStep) return nextStep
         }
     }
     for (const group of groups) {
@@ -135,9 +119,13 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
         if (group.every(index => cells[index] === Cell.X || getCoords(index, size).x === x)) return x
     }
 
-    function findSharedGroup(line: number[]): number | undefined {
-        const groupIndex = cellIndexToGroupIndex[line[0]]
-        if (line.every(index => cells[index] === Cell.X || cellIndexToGroupIndex[index] === groupIndex)) return groupIndex
+    function findSharedGroups(indices: number[], targetCount: number): number[] | undefined {
+        const groups: Set<number> = new Set()
+        for (const index of indices) {
+            groups.add(cellIndexToGroupIndex[index])
+            if (groups.size > targetCount) return
+        }
+        return Array.from(groups)
     }
 
     function getRemainingStarCount(group: number[]): number {
@@ -148,7 +136,7 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
         for (const group of targetGroups) {
             const indices = group.filter(index => cells[index] === Cell.BLANK)
             if (indices.length === 0) continue
-            if (getRemainingStarCount(indices) === indices.length)
+            if (getRemainingStarCount(group) === indices.length)
                 return {
                     indices,
                     type: Cell.STAR,
@@ -168,6 +156,28 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
                     message: `No more stars can be placed in this ${name}.`
                 }
             }
+        }
+    }
+
+    /* For example, if all the cells in 2 adjacent rows are in 2 groups, the stars in those groups
+        must be in those rows. The rest of the cells in those groups cannot contain stars.
+     */
+    function processGroupsFillLinesRule(lines: number[][], name: string): PuzzleStep | undefined {
+        const lineIndices = lines.flat().filter(index => cells[index] !== Cell.X)
+        const groupIndices = findSharedGroups(lineIndices, lines.length)
+        if (typeof groupIndices === 'undefined') return
+        console.log("line", lineIndices, "group", groupIndices, groupIndices.map(groupIndex => groups[groupIndex]).flat())
+        const indices = groupIndices.map(groupIndex => groups[groupIndex])
+            .flat()
+            .filter(index => !lineIndices.includes(index) && cells[index] !== Cell.X)
+        if (indices.length === 0) return
+        const groupsText = lines.length > 1 ? "these groups" : "this group"
+        const linesText = lines.length > 1 ? `these ${name}s` : `this ${name}`
+        return {
+            indices,
+            otherIndices: lineIndices,
+            type: Cell.X,
+            message: `Stars cannot be placed in ${groupsText} outside ${linesText}. Otherwise, there will not be enough stars in ${linesText}.`
         }
     }
 
@@ -257,4 +267,9 @@ function withinSquare(size: number, i: number, group: number[]) {
         const {x: otherX, y: otherY} = getCoords(index, size)
         return (Math.abs(x - otherX) <= 1 && Math.abs(y - otherY) <= 1)
     })
+}
+
+// Adapted from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/from#sequence_generator_range
+export function range(start: number, stop: number, step: number = 1): number[] {
+    return Array.from({ length: (stop - 1 - start) / step + 1 }, (_, i) => start + i * step)
 }

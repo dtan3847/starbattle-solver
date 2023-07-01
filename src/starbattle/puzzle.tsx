@@ -5,7 +5,14 @@ import Button from '@mui/material/Button';
 import Slider from '@mui/material/Slider';
 
 import { Cell, PuzzleStep } from './types'
-import { getNextStep, getCoords, getIndex, getNeighbouringIndices, partitionCells } from './utils'
+import {
+    getNextStep,
+    getCoords,
+    getIndex,
+    getNeighbouringIndices,
+    partitionCells,
+    range,
+} from './utils'
 
 import './puzzle.css'
 
@@ -136,7 +143,7 @@ export default function StarBattlePuzzle(): JSX.Element {
         <div className="StarBattle-Puzzle">
             <Button
                 variant="contained"
-                onClick={() => setMode((mode + 1) % 5)}
+                onClick={() => setMode((mode + 1) % 2)}
             >
                 Mode: {Mode[mode]}
             </Button>
@@ -389,11 +396,6 @@ export default function StarBattlePuzzle(): JSX.Element {
 
 function getStarCount(cells: Cell[]) {
     return cells.reduce((sum, current) => current === Cell.STAR ? sum + 1 : sum, 0)
-}
-
-// Adapted from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/from#sequence_generator_range
-function range(start: number, stop: number, step: number = 1): number[] {
-    return Array.from({ length: (stop - 1 - start) / step + 1 }, (_, i) => start + i * step)
 }
 
 function outOfBounds(x: number, y: number, size: number): boolean {

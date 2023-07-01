@@ -42,36 +42,11 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
     }
     for (const lineCount of range(1, size)) {
         for (const start of range(0, size - lineCount + 1)) {
+            // console.log("lineCount", lineCount, "start", start, "end", size - lineCount + 1)
             nextStep = processGroupsFillLinesRule(rows.slice(start, start + lineCount), "row")
             if (nextStep) return nextStep
             nextStep = processGroupsFillLinesRule(columns.slice(start, start + lineCount), "column")
             if (nextStep) return nextStep
-        }
-    }
-    for (const group of groups) {
-        const y = findSharedRow(group)
-        if (typeof y === "number") {
-            const row = rows[y]
-            const indices = row.filter(index => !group.includes(index) && cells[index] != Cell.X)
-            if (indices.length === 0) continue
-            return {
-                indices,
-                otherIndices: row.filter(index => group.includes(index)),
-                type: Cell.X,
-                message: `Stars cannot be placed in this row outside this group. Otherwise, there will not be enough stars left in the row within the group.`
-            }
-        }
-        const x = findSharedColumn(group)
-        if (typeof x === "number") {
-            const column = columns[x]
-            const indices = column.filter(index => !group.includes(index) && cells[index] != Cell.X)
-            if (indices.length === 0) continue
-            return {
-                indices,
-                otherIndices: column.filter(index => group.includes(index)),
-                type: Cell.X,
-                message: `Stars cannot be placed in this column outside this group. Otherwise, there will not be enough stars left in the column within the group.`
-            }
         }
     }
     const groupPartitions: number[][][] = groups.map(group => (

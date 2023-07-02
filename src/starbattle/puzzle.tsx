@@ -233,15 +233,16 @@ export default function StarBattlePuzzle(): JSX.Element {
         setDisplaySize(newSize)
         const newCells: Cell[] = Array(newSize**2).fill(Cell.BLANK).map((_, i) => {
             const {x, y} = getCoords(i, newSize)
-            return outOfBounds(x, y, size) ? Cell.BLANK : cells[getIndex(x, y, size)]
+            return outOfBounds(x, y, size, size) ? Cell.BLANK : cells[getIndex(x, y, size)]
         })
         const newHorizontalWalls: boolean[] = Array(newSize*(newSize - 1)).fill(false).map((_, i) => {
             const {x, y} = getCoords(i, newSize)
-            return outOfBounds(x, y, size) ? false : horizontalWalls[getIndex(x, y, size)]
+            return outOfBounds(x, y, size, size - 1) ? false : horizontalWalls[getIndex(x, y, size)]
         })
         const newVerticalWalls: boolean[] = Array(newSize*(newSize - 1)).fill(false).map((_, i) => {
             const {x, y} = getCoords(i, newSize - 1)
-            return outOfBounds(x, y, size - 1) ? false : verticalWalls[getIndex(x, y, size - 1)]
+            console.log(i, x, y, size, newSize, outOfBounds(x,y,size-1,size))
+            return outOfBounds(x, y, size - 1, size) ? false : verticalWalls[getIndex(x, y, size - 1)]
         })
         setResizingCells(newCells)
         setResizingHorizontalWalls(newHorizontalWalls)
@@ -398,6 +399,6 @@ function getStarCount(cells: Cell[]) {
     return cells.reduce((sum, current) => current === Cell.STAR ? sum + 1 : sum, 0)
 }
 
-function outOfBounds(x: number, y: number, size: number): boolean {
-    return x < 0 || x >= size || y < 0 || y >= size 
+function outOfBounds(x: number, y: number, xSize: number, ySize: number): boolean {
+    return x < 0 || x >= xSize || y < 0 || y >= ySize
 }

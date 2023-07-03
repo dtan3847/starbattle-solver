@@ -64,6 +64,23 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
     if (nextStep) return nextStep
     nextStep = processBlockRule(groups, columnPartitions, "column")
     if (nextStep) return nextStep
+    // For each blank cell, imagine what would happen if it was a star - set neighbours to x, check # of blocks for the groups/columns/rows they are in
+    for (const [i, cell] of cells.entries()) {
+        if (cell !== Cell.BLANK) continue
+        const neighbours = getNeighbouringIndices(size, i)
+        const groupIndices = new Set(neighbours.map(index => cellIndexToGroupIndex[index]))
+        const relevantGroups = Array.from(groupIndices).map(index => groups[index])
+        nextStep = processNoCrowdingRule(i, neighbours, relevantGroups, "group")
+        if (nextStep) return nextStep
+        const rowIndices = new Set(neighbours.map(index => getCoords(index, size).y))
+        const relevantRows = Array.from(rowIndices).map(index => rows[index])
+        processNoCrowdingRule(i, neighbours, relevantRows, "row")
+        if (nextStep) return nextStep
+        const columnIndices = new Set(neighbours.map(index => getCoords(index, size).x))
+        const relevantColumns = Array.from(columnIndices).map(index => rows[index])
+        processNoCrowdingRule(i, neighbours, relevantColumns, "column")
+        if (nextStep) return nextStep
+    }
     return {indices: [], type: Cell.BLANK, message: 'Unknown'}
     
     function getSharedNeighbour(indices: number[]): number[] {
@@ -181,6 +198,20 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
                     type: Cell.X,
                     message: baseMessage + ` If stars are placed here, there will be no place to put a star in this block`
                 }
+            }
+        }
+    }
+
+    function processNoCrowdingRule(i: number, neighbours: number[], relevantGroups: number[][], name: string) {
+        for (const group of relevantGroups) {
+            const remainingGroup = group.filter(index => cells[index] === Cell.BLANK && !neighbours.includes(index))
+            const partitions = partitionCells(size, remainingGroup)
+            if (partitions.length >= getRemainingStarCount(group)) continue
+            return {
+                indices: [i],
+                otherIndices: group,
+                type: Cell.X,
+                message: `A star cannot be placed here. Otherwise the indicated ${name} will not have enough room for stars.`
             }
         }
     }

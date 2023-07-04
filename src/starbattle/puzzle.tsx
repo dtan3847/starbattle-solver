@@ -6,6 +6,7 @@ import Slider from '@mui/material/Slider';
 
 import { Cell, PuzzleStep } from './types'
 import {
+    getSolutionError,
     getNextStep,
     getCoords,
     getIndex,
@@ -45,7 +46,7 @@ function StarBattleCell({ value, className, onClick }: CellProps): JSX.Element {
 
 // TODO: store walls as map to avoid having to recreate them when resizing
 export default function StarBattlePuzzle(): JSX.Element {
-    const [size, setSize] = useState(8)
+    const [size, setSize] = useState(5)
     const [starCount, setStarCount] = useState(1)
     const [cells, setCells] = useState(Array(size**2).fill(Cell.BLANK))
     const [horizontalWalls, setHorizontalWalls] = useState(Array(size*(size-1)).fill(false))
@@ -59,7 +60,7 @@ export default function StarBattlePuzzle(): JSX.Element {
     const horizontalWallsToDisplay = resizingHorizontalWalls || horizontalWalls
     const verticalWallsToDisplay = resizingVerticalWalls || verticalWalls
 
-    const neighbourView = useMemo(() => makeNeighbourView(), [cells, size])
+    const neighbours = useMemo(() => getAllNeighbouringIndices(), [displaySize])
     const {groups, cellIndexToGroupIndex} = useMemo(() => makeGroups(), [displaySize, horizontalWallsToDisplay, verticalWallsToDisplay])
     const [mode, setMode] = useState(Mode.DRAW)
     const rows = useMemo(() => range(0, displaySize).map(y => getRowIndices(y)), [displaySize])
@@ -96,7 +97,9 @@ export default function StarBattlePuzzle(): JSX.Element {
         }
     }
 
-    const nextStep = getNextStepIfSolving()
+    const solutionError = getSolutionErrorIfSolving()
+    const nextStep = solutionError.indices ? {} : getNextStepIfSolving()
+    const starBattleMessage = JSON.stringify(solutionError.message ? solutionError : nextStep)
     
     const typeToSymbol = {
         [Cell.BLANK]: "",
@@ -111,7 +114,7 @@ export default function StarBattlePuzzle(): JSX.Element {
             <StarBattleCell
                 key={i}
                 value={value}
-                className={makeCellClassNames(i, nextStep)}
+                className={makeCellClassNames(i, nextStep, solutionError)}
                 onClick={makeCellClickHandler(i)}
             />
         )
@@ -159,22 +162,31 @@ export default function StarBattlePuzzle(): JSX.Element {
             <Button variant="contained" onClick={handleClearClick}>
                 Clear
             </Button>
-            <div className="StarBattle-Message">
-                {mode === Mode.SOLVE ? JSON.stringify(nextStep) : ''}
-            </div>
+            {
+                mode === Mode.SOLVE
+                ? (<div className="StarBattle-Message">
+                        {starBattleMessage}
+                    </div>)
+                : ''
+            }
         </div>
     )
 
-    function getNextStepIfSolving() {
+    function getSolutionErrorIfSolving() {
+        if (mode !== Mode.SOLVE) return {}
         if (resizingCells !== null) return { message: 'Resizing' }
-        if (!isSolvable()) return {  message: 'Unsolvable' }
-        if (isSolved()) return {  message: 'Solved' }
-        if (mode === Mode.SOLVE) return getNextStep(cells, size, starCount, groups, cellIndexToGroupIndex, rows, columns)
-        return {}
+        return getSolutionError(cells, size, starCount, rows, columns, groups)
     }
 
-    function makeNeighbourView(): Cell[][] {
-        return cells.map((_, i) => getNeighbouringIndices(size, i).map(index => cells[index]))
+    function getNextStepIfSolving() {
+        if (mode !== Mode.SOLVE) return {}
+        if (!isSolvable()) return {  message: 'Unsolvable' }
+        if (isSolved()) return {  message: 'Solved' }
+        return getNextStep(cells, size, starCount, groups, cellIndexToGroupIndex, rows, columns)
+    }
+
+    function getAllNeighbouringIndices(): Cell[][] {
+        return range(0, displaySize**2).map(i => getNeighbouringIndices(displaySize, i))
     }
     
     /**
@@ -195,7 +207,7 @@ export default function StarBattlePuzzle(): JSX.Element {
         // for each cell that have a star, surrounding cells must have no star
         for (let i = 0; i < cells.length; i++) {
             if (cells[i] === Cell.STAR) {
-                if (neighbourView[i].find(neighbour => neighbour === Cell.STAR)) {
+                if (neighbours[i].find(neighbour => cells[neighbour] === Cell.STAR)) {
                     return false
                 }
             }
@@ -368,7 +380,7 @@ export default function StarBattlePuzzle(): JSX.Element {
         }
     }
 
-    function makeCellClassNames(i: number, nextStep: PuzzleStep) {
+    function makeCellClassNames(i: number, nextStep: PuzzleStep, solutionError: PuzzleStep) {
         const { x, y } = getCoords(i, displaySize)
         return classNames({
             'StarBattle-Cell': true,
@@ -380,6 +392,7 @@ export default function StarBattlePuzzle(): JSX.Element {
             'StarBattle-Cell-Indicated-Star': nextStep.indices && nextStep.indices.includes(i) && nextStep.type == Cell.STAR,
             'StarBattle-Cell-Indicated-Secondary': nextStep.otherIndices && nextStep.otherIndices.includes(i)
                                                     && (!nextStep.indices || !nextStep.indices.includes(i)),
+            'StarBattle-Cell-Indicated-Error': solutionError.indices && solutionError.indices.includes(i),
             'StarBattle-Cell-Partition-1': mode >= Mode.GROUP_PARTITION && cellPartitionResidue[i] === 0,
             'StarBattle-Cell-Partition-2': mode >= Mode.GROUP_PARTITION && cellPartitionResidue[i] === 1,
             'StarBattle-Cell-Partition-3': mode >= Mode.GROUP_PARTITION && cellPartitionResidue[i] === 2,
@@ -387,11 +400,11 @@ export default function StarBattlePuzzle(): JSX.Element {
     }
 
     function getRowIndices(y: number) {
-        return range(y * size, (y + 1) * size)
+        return range(y * displaySize, (y + 1) * displaySize)
     }
 
     function getColumnIndices(x: number) {
-        return range(x, size**2, size)
+        return range(x, displaySize**2, displaySize)
     }
 }
 

@@ -38,6 +38,10 @@
     background-color: lightblue;
 }
 
+.StarBattle-Cell-Indicated-Error {
+    background-color: lightcoral;
+}
+
 .StarBattle-Cell-Partition-1 {
     background-color: lightcoral;
 }

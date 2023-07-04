@@ -1,5 +1,42 @@
 import { Cell, PuzzleStep } from './types';
 
+export function getSolutionError(cells: Cell[], size: number, starCount: number, rows: number[][], columns: number[][], groups: number[][]): PuzzleStep {
+    // for each cell with star, surrounding cells must have no star
+    for (const [i, cell] of cells.entries()) {
+        if (cell !== Cell.STAR) continue
+        const starNeighbour = getNeighbouringIndices(size, i).find(index => cells[index] === Cell.STAR)
+        if (starNeighbour === undefined) continue
+        return {
+            indices: [i, starNeighbour],
+            message: "Stars cannot be next to each other.",
+        }
+    }
+    // each row, column, group must have at most n stars
+    let error = processTooManyStarsRule(rows, "row")
+    if (error) return error
+    error = processTooManyStarsRule(columns, "column")
+    if (error) return error
+    error = processTooManyStarsRule(groups, "group")
+    if (error) return error
+    return {}
+
+    function processTooManyStarsRule(targetGroups: number[][], name: string): PuzzleStep | undefined {
+        for (const group of targetGroups) {
+            if (getStarCount(group) > starCount) {
+                if (group.filter(index => cells[index] === Cell.BLANK).length === 0) continue
+                return {
+                    indices: group,
+                    message: `This ${name} contains too many stars.`
+                }
+            }
+        }
+    }
+
+    function getStarCount(group: number[]): number {
+        return group.filter(index => cells[index] === Cell.STAR).length
+    }
+}
+
 export function getNextStep(cells: Cell[], size: number, starCount: number, groups: number[][], cellIndexToGroupIndex: number[], rows: number[][], columns: number[][]): PuzzleStep {
     // apply each rule and return first match
     // for all groups, rows, columns, return if remainingStars == remainingSpaces
@@ -49,21 +86,6 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
             if (nextStep) return nextStep
         }
     }
-    const groupPartitions: number[][][] = groups.map(group => (
-        partitionCells(size, group.filter(index => cells[index] === Cell.BLANK))
-    ))
-    const rowPartitions: number[][][] = rows.map(group => (
-        partitionCells(size, group.filter(index => cells[index] === Cell.BLANK))
-    ))
-    const columnPartitions: number[][][] = columns.map(group => (
-        partitionCells(size, group.filter(index => cells[index] === Cell.BLANK))
-    ))
-    nextStep = processBlockRule(groups, groupPartitions, "group")
-    if (nextStep) return nextStep
-    nextStep = processBlockRule(groups, rowPartitions, "row")
-    if (nextStep) return nextStep
-    nextStep = processBlockRule(groups, columnPartitions, "column")
-    if (nextStep) return nextStep
     // For each blank cell, imagine what would happen if it was a star - set neighbours to x, check # of blocks for the groups/columns/rows they are in
     for (const [i, cell] of cells.entries()) {
         if (cell !== Cell.BLANK) continue
@@ -81,6 +103,21 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
         processNoCrowdingRule(i, neighbours, relevantColumns, "column")
         if (nextStep) return nextStep
     }
+    const groupPartitions: number[][][] = groups.map(group => (
+        partitionCells(size, group.filter(index => cells[index] === Cell.BLANK))
+    ))
+    const rowPartitions: number[][][] = rows.map(group => (
+        partitionCells(size, group.filter(index => cells[index] === Cell.BLANK))
+    ))
+    const columnPartitions: number[][][] = columns.map(group => (
+        partitionCells(size, group.filter(index => cells[index] === Cell.BLANK))
+    ))
+    nextStep = processBlockRule(groups, groupPartitions, "group")
+    if (nextStep) return nextStep
+    nextStep = processBlockRule(groups, rowPartitions, "row")
+    if (nextStep) return nextStep
+    nextStep = processBlockRule(groups, columnPartitions, "column")
+    if (nextStep) return nextStep
     return {indices: [], type: Cell.BLANK, message: 'Unknown'}
     
     function getSharedNeighbour(indices: number[]): number[] {
@@ -176,6 +213,7 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
     function processBlockRule(groups: number[][], partitionsList: number[][][], name: string): PuzzleStep | undefined {
         for (const [i, partitions] of partitionsList.entries()) {
             const remainingStarCount = getRemainingStarCount(groups[i])
+            console.log(name, i, "part. count", partitions.length, "remaining", remainingStarCount, "indices", groups[i])
             if (partitions.length !== remainingStarCount) continue
             const multipleLeft = remainingStarCount > 1
             const baseMessage = `There can be at most 1 star in each 2x2 square. When the remaining space 
@@ -188,7 +226,7 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
                     return {
                         indices: partition,
                         type: Cell.STAR,
-                        message: baseMessage + ` This block only has one space, so it must be a star`
+                        message: baseMessage + ` This block only has one space, so it must be a star.`
                     }
                 const indices = getSharedNeighbour(partition).filter(index => cells[index] != Cell.X)
                 if (indices.length === 0) continue
@@ -196,7 +234,7 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
                     indices,
                     otherIndices: partition,
                     type: Cell.X,
-                    message: baseMessage + ` If stars are placed here, there will be no place to put a star in this block`
+                    message: baseMessage + ` If stars are placed here, there will be no place to put a star in this block.`
                 }
             }
         }

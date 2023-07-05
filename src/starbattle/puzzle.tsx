@@ -30,14 +30,18 @@ type CellProps = {
     value: string
     className: string
     onClick: React.MouseEventHandler<HTMLButtonElement>
+    onDrag: React.MouseEventHandler<HTMLButtonElement>
 }
 
-function StarBattleCell({ value, className, onClick }: CellProps): JSX.Element {
+function StarBattleCell({ value, className, onClick, onDrag }: CellProps): JSX.Element {
     return (
         <button
             className={className}
             onClick={onClick}
             onContextMenu={onClick}
+            onMouseDown={onDrag}
+            onMouseMove={onDrag}
+            onMouseUp={onDrag}
         >
             {value}
         </button>
@@ -46,15 +50,16 @@ function StarBattleCell({ value, className, onClick }: CellProps): JSX.Element {
 
 // TODO: store walls as map to avoid having to recreate them when resizing
 export default function StarBattlePuzzle(): JSX.Element {
-    const [size, setSize] = useState(5)
+    const [displaySize, setDisplaySize] = useState(5)
     const [starCount, setStarCount] = useState(1)
-    const [cells, setCells] = useState(Array(size**2).fill(Cell.BLANK))
+    const [cells, setCells] = useState(Array(displaySize**2).fill(Cell.BLANK))
+    const size = useMemo(() => Math.round(Math.sqrt(cells.length)), [cells])
     const [horizontalWalls, setHorizontalWalls] = useState(Array(size*(size-1)).fill(false))
     const [verticalWalls, setVerticalWalls] = useState(Array(size*(size-1)).fill(false))
-    const [displaySize, setDisplaySize] = useState(size)
     const [resizingCells, setResizingCells] = useState<Cell[] | null>(null)
     const [resizingHorizontalWalls, setResizingHorizontalWalls] = useState<boolean[] | null>(null)
     const [resizingVerticalWalls, setResizingVerticalWalls] = useState<boolean[] | null>(null)
+    const [isDragging, setIsDragging] = useState(false)
 
     const cellsToDisplay = resizingCells || cells
     const horizontalWallsToDisplay = resizingHorizontalWalls || horizontalWalls
@@ -116,6 +121,7 @@ export default function StarBattlePuzzle(): JSX.Element {
                 value={value}
                 className={makeCellClassNames(i, nextStep, solutionError)}
                 onClick={makeCellClickHandler(i)}
+                onDrag={makeCellDragHandler(i)}
             />
         )
     })
@@ -264,7 +270,6 @@ export default function StarBattlePuzzle(): JSX.Element {
     function onSizeChangeCommitted(event: Event | React.SyntheticEvent<Element, Event>, value: number | number[]) {
         const newSize = typeof value == "number" ? value : value[value.length - 1]
         if (newSize !== size && resizingCells !== null) {
-            setSize(newSize)
             setCells(resizingCells!)
             setHorizontalWalls(resizingHorizontalWalls!)
             setVerticalWalls(resizingVerticalWalls!)
@@ -280,25 +285,27 @@ export default function StarBattlePuzzle(): JSX.Element {
         return horizontalWallsToDisplay[getIndex(x, y, displaySize)]
     }
 
-    function toggleHorizontalWall(x: number, y: number) {
-        if (x < 0 || x >= size || y < 0 || y >= size - 1) return
-        const i = getIndex(x, y, size)
-        const newWalls = horizontalWalls.slice()
-        newWalls[i] = !newWalls[i]
-        setHorizontalWalls(newWalls)
-    }
-
     // vertical walls are in size-1 columns, size rows
     function verticalWallExists(x: number, y: number): boolean {
         if (x < 0 || x >= displaySize - 1 || y < 0 || y >= displaySize) return false
         return verticalWallsToDisplay[getIndex(x, y, displaySize - 1)]
     }
 
-    function toggleVerticalWall(x: number, y: number) {
+    function setHorizontalWall(x: number, y: number, newValue: boolean) {
+        if (x < 0 || x >= size || y < 0 || y >= size - 1) return
+        const i = getIndex(x, y, size)
+        console.log("setHorizontalWall i x y", i, x, y)
+        const newWalls = horizontalWalls.slice()
+        newWalls[i] = newValue
+        setHorizontalWalls(newWalls)
+    }
+
+    function setVerticalWall(x: number, y: number, newValue: boolean) {
         if (x < 0 || x >= size - 1 || y < 0 || y >= size) return
         const i = getIndex(x, y, size - 1)
+        console.log("toggleVerticalWall i x y", i, x, y)
         const newWalls = verticalWalls.slice()
-        newWalls[i] = !newWalls[i]
+        newWalls[i] = newValue
         setVerticalWalls(newWalls)
     }
 
@@ -371,12 +378,43 @@ export default function StarBattlePuzzle(): JSX.Element {
                     else if (event.type === "contextmenu") setCell(i, (cells[i] + 2) % 3)
                     return
                 }
-                if (mode !== Mode.DRAW) return
-                if (Math.abs(offsetLeft - clientX) < margin) toggleVerticalWall(x - 1, y)
-                if (Math.abs(offsetTop - clientY) < margin) toggleHorizontalWall(x, y - 1)
-                if (Math.abs(offsetLeft + offsetWidth - clientX) < margin) toggleVerticalWall(x, y)
-                if (Math.abs(offsetTop + offsetHeight - clientY) < margin) toggleHorizontalWall(x, y)
             }
+        }
+    }
+
+    function makeCellDragHandler(i: number) {
+        const { x, y } = getCoords(i, size)
+        const margin = 10 // px
+        return (event: React.MouseEvent<HTMLElement>) => {
+            if (resizingCells !== null) return
+            if (mode !== Mode.DRAW) return
+            if (!(event.target instanceof HTMLElement)) return
+            if (event.type === "mouseup") {
+                setIsDragging(false)
+                return
+            }
+            if (event.type === "mousedown") {
+                setIsDragging(true)
+                console.log("mousedown dragging", isDragging)
+            } else if (!isDragging) return
+            console.log(event)
+            event.preventDefault()
+            const { clientX, clientY, buttons, target: { offsetLeft, offsetTop, offsetWidth, offsetHeight }} = event
+            console.log("i, x, y, size, clientX, clientY, offsetLeft, offsetTop, offsetLeft + offsetWidth, offsetTop + offsetHeight")
+            console.log(i, x, y, size, clientX, clientY, offsetLeft, offsetTop, offsetLeft + offsetWidth, offsetTop + offsetHeight)
+            const leftClick = buttons === 1
+            const closeToLeft = Math.abs(offsetLeft - clientX) < margin
+            const closeToTop = Math.abs(offsetTop - clientY) < margin
+            const closeToRight = Math.abs(offsetLeft + offsetWidth - clientX) < margin
+            const closeToBottom = Math.abs(offsetTop + offsetHeight - clientY) < margin
+            // If close to mutliple walls, avoid unwanted changes by not changing anything
+            console.log(closeToLeft, closeToTop, closeToRight, closeToBottom)
+            if ([closeToLeft, closeToTop, closeToRight, closeToBottom].filter(b => b).length > 1) return
+            // set state is async, so for simplicity only change one at a time
+            if (closeToLeft) return setVerticalWall(x - 1, y, leftClick)
+            if (closeToTop) return setHorizontalWall(x, y - 1, leftClick)
+            if (closeToRight) return setVerticalWall(x, y, leftClick)
+            if (closeToBottom) return setHorizontalWall(x, y, leftClick)
         }
     }
 

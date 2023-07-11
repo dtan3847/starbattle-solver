@@ -102,12 +102,12 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
     const rowPartitions: number[][][] = rows.map(group => (
         partitionCells(size, group.filter(index => cells[index] === Cell.BLANK))
     ))
-    nextStep = processBlockRule(groups, rowPartitions, "row")
+    nextStep = processBlockRule(rows, rowPartitions, "row")
     if (nextStep) return nextStep
     const columnPartitions: number[][][] = columns.map(group => (
         partitionCells(size, group.filter(index => cells[index] === Cell.BLANK))
     ))
-    nextStep = processBlockRule(groups, columnPartitions, "column")
+    nextStep = processBlockRule(columns, columnPartitions, "column")
     if (nextStep) return nextStep
     for (const lineCount of range(1, size)) {
         for (const start of range(0, size - lineCount + 1)) {

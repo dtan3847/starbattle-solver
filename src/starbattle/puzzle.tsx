@@ -170,6 +170,13 @@ export default function StarBattlePuzzle(): JSX.Element {
             </Button>
             {
                 mode === Mode.SOLVE
+                ? <Button variant="contained" onClick={applyNextStep}>
+                    Apply Next Step
+                </Button>
+                : ''
+            }
+            {
+                mode === Mode.SOLVE
                 ? (<div className="StarBattle-Message">
                         {starBattleMessage}
                     </div>)
@@ -229,6 +236,14 @@ export default function StarBattlePuzzle(): JSX.Element {
             if (getStarCount(group.map(i => cells[i])) != starCount) return false
         }
         return true
+    }
+
+    function applyNextStep() {
+        const newCells = cells.slice()
+        const { indices, type } = nextStep
+        if (indices === undefined || type === undefined) return
+        indices.forEach(index => newCells[index] = type)
+        setCells(newCells)
     }
 
     function setCell(i: number, newValue: Cell) {

@@ -94,20 +94,11 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
         nextStep = processNoCrowdingRule(i, neighbours, relevantColumns, "column")
         if (nextStep) return nextStep
     }
-    const groupPartitions: number[][][] = groups.map(group => (
-        partitionCells(size, group.filter(index => cells[index] === Cell.BLANK))
-    ))
-    nextStep = processBlockRule(groups, groupPartitions, "group")
+    nextStep = processBlockRule(groups, "group")
     if (nextStep) return nextStep
-    const rowPartitions: number[][][] = rows.map(group => (
-        partitionCells(size, group.filter(index => cells[index] === Cell.BLANK))
-    ))
-    nextStep = processBlockRule(rows, rowPartitions, "row")
+    nextStep = processBlockRule(rows, "row")
     if (nextStep) return nextStep
-    const columnPartitions: number[][][] = columns.map(group => (
-        partitionCells(size, group.filter(index => cells[index] === Cell.BLANK))
-    ))
-    nextStep = processBlockRule(columns, columnPartitions, "column")
+    nextStep = processBlockRule(columns, "column")
     if (nextStep) return nextStep
     for (const lineCount of range(1, size)) {
         for (const start of range(0, size - lineCount + 1)) {
@@ -118,6 +109,12 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
             if (nextStep) return nextStep
         }
     }
+    const twoRowGroups = range(0, size - 2 + 1).map(start => rows.slice(start, start + 2).flat())
+    nextStep = processBlockRule(twoRowGroups, "row", 2 * starCount)
+    if (nextStep) return nextStep
+    const twoColumnGroups = range(0, size - 2 + 1).map(start => columns.slice(start, start + 2).flat())
+    nextStep = processBlockRule(twoColumnGroups, "column", 2 * starCount)
+    if (nextStep) return nextStep
     return {indices: [], type: Cell.BLANK, message: 'Unknown'}
     
     function getSharedNeighbour(indices: number[]): number[] {
@@ -157,8 +154,8 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
         return Array.from(groups)
     }
 
-    function getRemainingStarCount(group: number[]): number {
-        return starCount - group.filter(index => cells[index] === Cell.STAR).length
+    function getRemainingStarCount(group: number[], totalStarCount: number = starCount) {
+        return totalStarCount - group.filter(index => cells[index] === Cell.STAR).length
     }
 
     function processLastSpacesRule(targetGroups: number[][], name: string): PuzzleStep | undefined {
@@ -210,15 +207,19 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
         }
     }
 
-    function processBlockRule(groups: number[][], partitionsList: number[][][], name: string): PuzzleStep | undefined {
-        for (const [i, partitions] of partitionsList.entries()) {
-            const remainingStarCount = getRemainingStarCount(groups[i])
+    function processBlockRule(groups: number[][], name: string, starCountPerGroup: number = starCount): PuzzleStep | undefined {
+        for (const group of groups) {
+            const blankGroup = group.filter(index => cells[index] === Cell.BLANK)
+            const partitions = partitionCells(size, blankGroup)
+            const remainingStarCount = getRemainingStarCount(group, starCountPerGroup)
+            console.log("group", group, "parts", partitions)
             // console.log(name, i, "part. count", partitions.length, "remaining", remainingStarCount, "indices", groups[i])
             if (partitions.length !== remainingStarCount) continue
             const multipleLeft = remainingStarCount > 1
-            const baseMessage = `There can be at most 1 star in each 2x2 square. When the remaining space 
-                within this ${name} is split into blocks at most 2x2 in size, 
-                there ${multipleLeft ? 'are' : 'is'} only ${remainingStarCount} square${multipleLeft ? 's' : ''}, 
+            const multipleGroup = starCountPerGroup > starCount
+            const baseMessage = `There can be at most 1 star in each 2x2 block. When the remaining space 
+                within ${multipleGroup ? 'these': 'this'}  ${name}${multipleGroup ? 's' : ''} is split into blocks at most 2x2 in size, 
+                there ${multipleLeft ? 'are' : 'is'} only ${remainingStarCount} block${multipleLeft ? 's' : ''}, 
                 which is equal to the number of remaining stars. 
                 Therefore, each block must contain a star.`.replaceAll('\n', '')
             for (const partition of partitions) {
@@ -232,7 +233,7 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
                 if (indices.length === 0) continue
                 return {
                     indices,
-                    otherIndices: partition,
+                    otherIndices: blankGroup,
                     type: Cell.X,
                     message: baseMessage + ` If stars are placed here, there will be no place to put a star in this block.`
                 }

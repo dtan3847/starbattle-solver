@@ -39,6 +39,7 @@ export function getSolutionError(cells: Cell[], size: number, starCount: number,
 export function getNextStep(cells: Cell[], size: number, starCount: number, groups: number[][], cellIndexToGroupIndex: number[], rows: number[][], columns: number[][]): PuzzleStep {
     // apply each rule and return first match
     // for all groups, rows, columns, return if remainingStars == remainingSpaces
+    const confirmedPartitions: number[][] = []
     let nextStep = processLastSpacesRule(groups, "group")
     if (nextStep) return nextStep
     nextStep = processLastSpacesRule(rows, "row")
@@ -73,7 +74,7 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
             indices: [i],
             otherIndices: group,
             type: Cell.X,
-            message: `Stars cannot be placed here. Otherwise, no cells can be placed within this group.`
+            message: `A star cannot be placed here. Otherwise, not enough stars can be placed within this group.`
         }
     }
     // For each blank cell, imagine what would happen if it was a star - set neighbours to x, check # of blocks for the groups/columns/rows they are in
@@ -114,6 +115,12 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
     if (nextStep) return nextStep
     const twoColumnGroups = range(0, size - 2 + 1).map(start => columns.slice(start, start + 2).flat())
     nextStep = processBlockRule(twoColumnGroups, "column", 2 * starCount)
+    if (nextStep) return nextStep
+    nextStep = processConfirmedBlockRule(twoRowGroups, "row", 2 * starCount)
+    if (nextStep) return nextStep
+    nextStep = processConfirmedBlockRule(twoColumnGroups, "column", 2 * starCount)
+    if (nextStep) return nextStep
+    nextStep = processConfirmedBlockRule(groups, "group", 2 * starCount)
     if (nextStep) return nextStep
     return {indices: [], type: Cell.BLANK, message: 'Unknown'}
     
@@ -212,9 +219,9 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
             const blankGroup = group.filter(index => cells[index] === Cell.BLANK)
             const partitions = partitionCells(size, blankGroup)
             const remainingStarCount = getRemainingStarCount(group, starCountPerGroup)
-            console.log("group", group, "parts", partitions)
-            // console.log(name, i, "part. count", partitions.length, "remaining", remainingStarCount, "indices", groups[i])
+            // console.log("group", group, "parts", partitions, "remainingStarCount", remainingStarCount)
             if (partitions.length !== remainingStarCount) continue
+            partitions.forEach(partition => addConfirmedPartition(partition))
             const multipleLeft = remainingStarCount > 1
             const multipleGroup = starCountPerGroup > starCount
             const baseMessage = `There can be at most 1 star in each 2x2 block. When the remaining space 
@@ -240,8 +247,48 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
             }
         }
     }
+    
+    function addConfirmedPartition(partitionToAdd: number[]) {
+        const subsetIndex = confirmedPartitions.findIndex(partition => {
+            return partition.length <= partitionToAdd.length
+                && partition.every(index => partitionToAdd.includes(index))
+        })
+        if (subsetIndex > -1) return
+        const supersetIndex = confirmedPartitions.findIndex(partition => {
+            return partition.length > partitionToAdd.length
+                && partitionToAdd.every(index => partition.includes(index))
+        })
+        if (supersetIndex > -1) return confirmedPartitions[supersetIndex] = partitionToAdd
+        confirmedPartitions.push(partitionToAdd)
+    }
 
-    function processNoCrowdingRule(i: number, neighbours: number[], relevantGroups: number[][], name: string) {
+    /* When processing the block rule, for example in 2 rows, suppose we find partitions that match the remaining star count.
+        These partitions are confirmed to have a star in each. When partitioning 2 columns for example, if we find one of the
+        confirmed partitions again with 1 remaining star in the 2 columns, since we know a star has to be in that partition,
+        we can exclude the spaces in the 2 columns outside the partition.
+     */
+    function processConfirmedBlockRule(groups: number[][], name: string, starCountPerGroup: number = starCount): PuzzleStep | undefined {
+        for (const group of groups) {
+            const remainingStarCount = getRemainingStarCount(group, starCountPerGroup)
+            if (remainingStarCount !== 1) continue
+            const blankGroup = group.filter(index => cells[index] === Cell.BLANK)
+            const match = confirmedPartitions.find(partition => partition.every(index => group.includes(index)))
+            if (match === undefined) continue
+            const indices = blankGroup.filter(index => !match.includes(index))
+            if (indices.length === 0) continue
+            const multipleGroup = starCountPerGroup > starCount
+            return {
+                indices,
+                otherIndices: blankGroup,
+                type: Cell.X,
+                message: `There can be at most 1 star in each 2x2 block. The indicated block is confirmed to have a star 
+                            from splitting some columns, rows, or groups into blocks, so we can exclude the spaces within 
+                            ${multipleGroup ? 'these': 'this'} ${name}${multipleGroup ? 's' : ''} outside the block .`.replaceAll('\n', '')
+            }
+        }
+    }
+
+    function processNoCrowdingRule(i: number, neighbours: number[], relevantGroups: number[][], name: string): PuzzleStep | undefined {
         for (const group of relevantGroups) {
             const remainingGroup = group.filter(index => cells[index] === Cell.BLANK && !neighbours.includes(index))
             // console.log(i, name, group, remainingGroup)

@@ -165,6 +165,12 @@ export default function StarBattlePuzzle(): JSX.Element {
             >
                 {contentCells}
             </div>
+            <Button variant="contained" onClick={savePuzzleToLocalStorage}>
+                Save Puzzle
+            </Button>
+            <Button variant="contained" onClick={loadPuzzleFromLocalStorage}>
+                Load Puzzle
+            </Button>
             <Button variant="contained" onClick={handleClearClick}>
                 Clear
             </Button>
@@ -250,6 +256,28 @@ export default function StarBattlePuzzle(): JSX.Element {
         const newCells = cells.slice()
         newCells[i] = newValue
         setCells(newCells)
+    }
+
+    function savePuzzleToLocalStorage() {
+        const data = JSON.stringify({
+            displaySize,
+            starCount,
+            cells,
+            horizontalWalls,
+            verticalWalls,
+        })
+        localStorage.setItem("starbattlePuzzle", data)
+    }
+
+    function loadPuzzleFromLocalStorage() {
+        const raw = localStorage.getItem("starbattlePuzzle")
+        if (raw === null) return
+        const data = JSON.parse(raw)
+        setDisplaySize(data.displaySize)
+        setStarCount(data.starCount)
+        setCells(data.cells)
+        setHorizontalWalls(data.horizontalWalls)
+        setVerticalWalls(data.verticalWalls)
     }
 
     function handleClearClick() {

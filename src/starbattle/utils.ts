@@ -91,7 +91,7 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
         if (nextStep) return nextStep
         const columnIndices = new Set(neighbours.map(index => getCoords(index, size).x))
         const relevantColumns = Array.from(columnIndices).map(index => columns[index])
-        console.log(i, neighbours, columnIndices, relevantColumns)
+        // console.log(i, neighbours, columnIndices, relevantColumns)
         nextStep = processNoCrowdingRule(i, neighbours, relevantColumns, "column")
         if (nextStep) return nextStep
     }
@@ -121,6 +121,8 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
     nextStep = processConfirmedBlockRule(twoColumnGroups, "column", 2 * starCount)
     if (nextStep) return nextStep
     nextStep = processConfirmedBlockRule(groups, "group", 2 * starCount)
+    if (nextStep) return nextStep
+    nextStep = processCombinedGroupBlockRule()
     if (nextStep) return nextStep
     return {indices: [], type: Cell.BLANK, message: 'Unknown'}
     
@@ -214,16 +216,31 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
         }
     }
 
-    function processBlockRule(groups: number[][], name: string, starCountPerGroup: number = starCount): PuzzleStep | undefined {
-        for (const group of groups) {
-            const blankGroup = group.filter(index => cells[index] === Cell.BLANK)
+    function processNoCrowdingRule(i: number, neighbours: number[], relevantGroups: number[][], name: string): PuzzleStep | undefined {
+        for (const group of relevantGroups) {
+            const remainingGroup = group.filter(index => cells[index] === Cell.BLANK && !neighbours.includes(index))
+            // console.log(i, name, group, remainingGroup)
+            const partitions = partitionCells(size, remainingGroup)
+            if (partitions.length >= getRemainingStarCount(group)) continue
+            return {
+                indices: [i],
+                otherIndices: group,
+                type: Cell.X,
+                message: `A star cannot be placed here. Otherwise the indicated ${name} will not have enough room for stars.`
+            }
+        }
+    }
+
+    function processBlockRule(targets: number[][], name: string, starCountPerTarget: number = starCount): PuzzleStep | undefined {
+        for (const target of targets) {
+            const blankGroup = target.filter(index => cells[index] === Cell.BLANK)
             const partitions = partitionCells(size, blankGroup)
-            const remainingStarCount = getRemainingStarCount(group, starCountPerGroup)
-            // console.log("group", group, "parts", partitions, "remainingStarCount", remainingStarCount)
+            const remainingStarCount = getRemainingStarCount(target, starCountPerTarget)
+            // console.log("target", target, "parts", partitions, "remainingStarCount", remainingStarCount)
             if (partitions.length !== remainingStarCount) continue
             partitions.forEach(partition => addConfirmedPartition(partition))
             const multipleLeft = remainingStarCount > 1
-            const multipleGroup = starCountPerGroup > starCount
+            const multipleGroup = starCountPerTarget > starCount
             const baseMessage = `There can be at most 1 star in each 2x2 block. When the remaining space 
                 within ${multipleGroup ? 'these': 'this'}  ${name}${multipleGroup ? 's' : ''} is split into blocks at most 2x2 in size, 
                 there ${multipleLeft ? 'are' : 'is'} only ${remainingStarCount} block${multipleLeft ? 's' : ''}, 
@@ -233,6 +250,7 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
                 if (partition.length === 1)
                     return {
                         indices: partition,
+                        otherIndices: target,
                         type: Cell.STAR,
                         message: baseMessage + ` This block only has one space, so it must be a star.`
                     }
@@ -246,6 +264,69 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
                 }
             }
         }
+    }
+
+    // The block rule can be applied to multiple groups joined as one.
+    // There may be fewer partitions as some may stretch across group borders
+    function processCombinedGroupBlockRule(): PuzzleStep | undefined {
+        // For each group, find neighbours (with greater index)
+        const groupNeighbours = getGroupNeighbours()
+        console.log(groupNeighbours)
+        // Choose # of groups to combine
+        for (let groupCount = 2; groupCount <= groups.length; groupCount++) {
+            // For each selection of groups, partition
+            console.log("groupCount", groupCount)
+            for (const i of range(0, groups.length - groupCount + 1)) {
+                const selections = getSelections([[i]], groupCount)
+                console.log(i, selections)
+                if (selections.length === 0) continue
+                const combinedGroups = selections.map(selection => {
+                    return selection.map(groupIndex => groups[groupIndex]).flat()
+                })
+                const nextStep = processBlockRule(combinedGroups, "group", groupCount * starCount)
+                if (nextStep) return nextStep
+            }
+
+        }
+
+        // gets a combination of neighbouring groups
+        // TODO: currently gets all paths, but is there a way to get combinations instead?
+        function getSelections(inProgress: number[][], groupCount: number): number[][] {
+            if (inProgress.length === 0) return inProgress
+            if (inProgress[0].length === groupCount) return inProgress
+            const selections: number[][] = []
+            for (const selection of inProgress) {
+                const candidates = getCandidates(selection)
+                if (candidates.length === 0) continue
+                for (const candidate of candidates) {
+                    selections.push([...selection, candidate])
+                }
+            }
+            return getSelections(selections, groupCount)
+        }
+
+        function getCandidates(selection: number[]) {
+            return Array.from(new Set(selection.map(index => groupNeighbours[index])
+                                               .flat()
+                                               .filter(index => !selection.includes(index))))
+        }
+    }
+
+    function getGroupNeighbours() {
+        const blankGroups = groups.map(group => group.filter(i => cells[i] === Cell.BLANK))
+        // true if some blank cell in group is next to some blank cell in other
+        return blankGroups.map((group1, index1) => {
+            return blankGroups.map((group2, index2) => {
+                if (index1 >= index2) return -1
+                return group1.some(i => group2.some(j => isNeighbour(i, j)))
+                    ? index2
+                    : -1
+            }).filter(val => val !== -1)
+        })
+    }
+
+    function isNeighbour(i: number, j: number) {
+        return getNeighbouringIndices(size, i).includes(j)
     }
     
     function addConfirmedPartition(partitionToAdd: number[]) {
@@ -284,21 +365,6 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
                 message: `There can be at most 1 star in each 2x2 block. The indicated block is confirmed to have a star 
                             from splitting some columns, rows, or groups into blocks, so we can exclude the spaces within 
                             ${multipleGroup ? 'these': 'this'} ${name}${multipleGroup ? 's' : ''} outside the block .`.replaceAll('\n', '')
-            }
-        }
-    }
-
-    function processNoCrowdingRule(i: number, neighbours: number[], relevantGroups: number[][], name: string): PuzzleStep | undefined {
-        for (const group of relevantGroups) {
-            const remainingGroup = group.filter(index => cells[index] === Cell.BLANK && !neighbours.includes(index))
-            // console.log(i, name, group, remainingGroup)
-            const partitions = partitionCells(size, remainingGroup)
-            if (partitions.length >= getRemainingStarCount(group)) continue
-            return {
-                indices: [i],
-                otherIndices: group,
-                type: Cell.X,
-                message: `A star cannot be placed here. Otherwise the indicated ${name} will not have enough room for stars.`
             }
         }
     }

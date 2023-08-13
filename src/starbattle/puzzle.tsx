@@ -6,11 +6,13 @@ import Slider from '@mui/material/Slider';
 
 import { Cell, PuzzleStep } from './types'
 import {
+    applyNextStep,
     getSolutionError,
+    findSolution,
     getNextStep,
     getCoords,
     getIndex,
-    getNeighbouringIndices,
+    getAllNeighbouringIndices,
     partitionCells,
     range,
 } from './utils'
@@ -65,12 +67,11 @@ export default function StarBattlePuzzle(): JSX.Element {
     const horizontalWallsToDisplay = resizingHorizontalWalls || horizontalWalls
     const verticalWallsToDisplay = resizingVerticalWalls || verticalWalls
 
-    const neighbours = useMemo(() => getAllNeighbouringIndices(), [displaySize])
+    const neighbours = useMemo(() => getAllNeighbouringIndices(displaySize), [displaySize])
     const {groups, cellIndexToGroupIndex} = useMemo(() => makeGroups(), [displaySize, horizontalWallsToDisplay, verticalWallsToDisplay])
     const [mode, setMode] = useState(Mode.DRAW)
     const rows = useMemo(() => range(0, displaySize).map(y => getRowIndices(y)), [displaySize])
     const columns = useMemo(() => range(0, displaySize).map(x => getColumnIndices(x)), [displaySize])
-    
 
     const cellPartitionResidue: number[] = []
     const groupPartitions: number[][][] = groups.map(group => (
@@ -103,8 +104,8 @@ export default function StarBattlePuzzle(): JSX.Element {
     }
 
     const solutionError = getSolutionErrorIfSolving()
-    const nextStep = solutionError.indices ? {} : getNextStepIfSolving()
-    const starBattleMessage = JSON.stringify(solutionError.message ? solutionError : nextStep)
+    let nextStep = solutionError.indices ? {} : getNextStepIfSolving()
+    let starBattleMessage = JSON.stringify(solutionError.message ? solutionError : nextStep)
     
     const typeToSymbol = {
         [Cell.BLANK]: "",
@@ -176,9 +177,14 @@ export default function StarBattlePuzzle(): JSX.Element {
             </Button>
             {
                 mode === Mode.SOLVE
-                ? <Button variant="contained" onClick={applyNextStep}>
-                    Apply Next Step
-                </Button>
+                ? (<>
+                    <Button variant="contained" onClick={applyNextStepAndSave}>
+                        Apply Next Step
+                    </Button>
+                    <Button variant="contained" onClick={autoSolve}>
+                        Auto Solve
+                    </Button>
+                </>)
                 : ''
             }
             {
@@ -204,8 +210,11 @@ export default function StarBattlePuzzle(): JSX.Element {
         return getNextStep(cells, size, starCount, groups, cellIndexToGroupIndex, rows, columns)
     }
 
-    function getAllNeighbouringIndices(): Cell[][] {
-        return range(0, displaySize**2).map(i => getNeighbouringIndices(displaySize, i))
+    function autoSolve() {
+        const solution = findSolution(cells, size, starCount, rows, columns, groups, cellIndexToGroupIndex)
+        if (solution) {
+            setCells(solution)
+        }
     }
     
     /**
@@ -244,12 +253,9 @@ export default function StarBattlePuzzle(): JSX.Element {
         return true
     }
 
-    function applyNextStep() {
-        const newCells = cells.slice()
-        const { indices, type } = nextStep
-        if (indices === undefined || type === undefined) return
-        indices.forEach(index => newCells[index] = type)
-        setCells(newCells)
+    function applyNextStepAndSave() {
+        const newCells = applyNextStep(cells, nextStep)
+        if (newCells) setCells(newCells)
     }
 
     function setCell(i: number, newValue: Cell) {
@@ -302,7 +308,6 @@ export default function StarBattlePuzzle(): JSX.Element {
         })
         const newVerticalWalls: boolean[] = Array(newSize*(newSize - 1)).fill(false).map((_, i) => {
             const {x, y} = getCoords(i, newSize - 1)
-            console.log(i, x, y, size, newSize, outOfBounds(x,y,size-1,size))
             return outOfBounds(x, y, size - 1, size) ? false : verticalWalls[getIndex(x, y, size - 1)]
         })
         setResizingCells(newCells)
@@ -403,6 +408,9 @@ export default function StarBattlePuzzle(): JSX.Element {
         for (let i = 0; i < displaySize**2; i++) {
             cellIndexToGroupIndex[i] = groups.indexOf(indexToGroup.get(i)!)
         }
+        for (const group of groups) {
+            group.sort((a, b) => a - b)
+        }
         return {groups, cellIndexToGroupIndex}
     }
 
@@ -443,8 +451,8 @@ export default function StarBattlePuzzle(): JSX.Element {
             console.log(event)
             event.preventDefault()
             const { clientX, clientY, buttons, target: { offsetLeft, offsetTop, offsetWidth, offsetHeight }} = event
-            console.log("i, x, y, size, clientX, clientY, offsetLeft, offsetTop, offsetLeft + offsetWidth, offsetTop + offsetHeight")
-            console.log(i, x, y, size, clientX, clientY, offsetLeft, offsetTop, offsetLeft + offsetWidth, offsetTop + offsetHeight)
+            console.log("i, size, x, clientX, offsetLeft, offsetLeft + offsetWidth, y, clientY, offsetTop, offsetTop + offsetHeight")
+            console.log(i, size, "//", x, clientX, offsetLeft, offsetLeft + offsetWidth, "//", y, clientY, offsetTop, offsetTop + offsetHeight)
             const leftClick = buttons === 1
             const closeToLeft = Math.abs(offsetLeft - clientX) < margin
             const closeToTop = Math.abs(offsetTop - clientY) < margin

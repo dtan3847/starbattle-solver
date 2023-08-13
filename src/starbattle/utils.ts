@@ -1,28 +1,40 @@
 import { Cell, PuzzleStep } from './types';
 
 export function getSolutionError(cells: Cell[], size: number, starCount: number, rows: number[][], columns: number[][], groups: number[][]): PuzzleStep {
-    // for each cell with star, surrounding cells must have no star
-    for (const [i, cell] of cells.entries()) {
-        if (cell !== Cell.STAR) continue
-        const starNeighbour = getNeighbouringIndices(size, i).find(index => cells[index] === Cell.STAR)
-        if (starNeighbour === undefined) continue
-        return {
-            indices: [i, starNeighbour],
-            message: "Stars cannot be next to each other.",
-        }
-    }
-    // each row, column, group must have at most n stars
-    let error = processTooManyStarsRule(rows, "row")
+    let error = findSimpleError()
     if (error) return error
-    error = processTooManyStarsRule(columns, "column")
-    if (error) return error
-    error = processTooManyStarsRule(groups, "group")
-    if (error) return error
+    // return { message: "Unsolvable" }
     return {}
+
+    function findSimpleError(): PuzzleStep | undefined {
+        // for each cell with star, surrounding cells must have no star
+        for (const [i, cell] of cells.entries()) {
+            if (cell !== Cell.STAR) continue
+            const starNeighbour = getNeighbouringIndices(size, i).find(index => cells[index] === Cell.STAR)
+            if (starNeighbour === undefined) continue
+            return {
+                indices: [i, starNeighbour],
+                message: "Stars cannot be next to each other.",
+            }
+        }
+        // each row, column, group must have at most n stars
+        let error = processTooManyStarsRule(rows, "row")
+        if (error) return error
+        error = processTooManyStarsRule(columns, "column")
+        if (error) return error
+        error = processTooManyStarsRule(groups, "group")
+        if (error) return error
+        error = processNotEnoughSpacesRule(rows, "row")
+        if (error) return error
+        error = processNotEnoughSpacesRule(columns, "column")
+        if (error) return error
+        error = processNotEnoughSpacesRule(groups, "group")
+        if (error) return error
+    }
 
     function processTooManyStarsRule(targetGroups: number[][], name: string): PuzzleStep | undefined {
         for (const group of targetGroups) {
-            if (getStarCount(group) > starCount) {
+            if (getStarCount(group, cells) > starCount) {
                 return {
                     indices: group,
                     message: `This ${name} contains too many stars.`
@@ -31,15 +43,127 @@ export function getSolutionError(cells: Cell[], size: number, starCount: number,
         }
     }
 
-    function getStarCount(group: number[]): number {
-        return group.filter(index => cells[index] === Cell.STAR).length
+    function processNotEnoughSpacesRule(targetGroups: number[][], name: string): PuzzleStep | undefined {
+        for (const group of targetGroups) {
+            if (starCount - getStarCount(group, cells) > getCellCount(group, cells, Cell.BLANK)) {
+                return {
+                    indices: group,
+                    message: `This ${name} contains too few blank spaces.`
+                }
+            }
+        }
     }
+
+}
+
+export function findSolution(cells: Cell[], size: number, starCount: number, rows: number[][], columns: number[][], groups: number[][], cellIndexToGroupIndex: number[]): Cell[] | undefined  {
+    let cellsCopy = cells.slice()
+    const guesses: number[] = []
+    const res = findSolutionHelper()
+    console.log("After solution helper, res:", res)
+    if (res) return res
+
+    function findSolutionHelper(startIndex: number = 0): Cell[] | undefined {
+        console.log("In findSolutionHelper", startIndex)
+        // Early failure check
+        if (pastUnfinishedGroup(startIndex)) return
+        // Use logic where possible
+        const err = applyNextSteps()
+        if (err !== undefined) return
+        console.log("After logic")
+        // Successful base case
+        if (isSolved(cellsCopy)) return cellsCopy
+        // Otherwise, guess and check
+        for (let i = startIndex; i < cellsCopy.length; i++) {
+            if (pastUnfinishedGroup(i)) break
+            if (cellsCopy[i] !== Cell.BLANK) continue
+            // getNextStep should have already marked the following with X, so they shouldn't need to be checked
+            if (getNeighbouringIndices(size, i).find(neighbour => cellsCopy[neighbour] === Cell.STAR)) continue
+            if (getStarCount(groups[cellIndexToGroupIndex[i]], cellsCopy) === starCount) continue
+            const {x, y} = getCoords(i, size)
+            if (getStarCount(rows[y], cellsCopy) === starCount) continue
+            if (getStarCount(columns[x], cellsCopy) === starCount) continue
+            const backup = cellsCopy.slice()
+            cellsCopy[i] = Cell.STAR
+            guesses.push(i)
+            console.log("guesses,", guesses.slice())
+            const res = findSolutionHelper(i + 1)
+            if (res) {
+                return res
+            }
+            // Guess was wrong
+            cellsCopy = backup
+            cellsCopy[i] = Cell.X
+            guesses.pop()
+            const err = applyNextSteps()
+            if (err !== undefined) return
+        }
+        // Unsuccessful base case
+    }
+
+    function applyNextSteps() {
+        while (true) {
+            let nextStep = getNextStep(cellsCopy, size, starCount, groups, cellIndexToGroupIndex, rows, columns)
+            const newCells = applyNextStep(cellsCopy, nextStep, true)
+            if (!newCells) return
+            const error = getSolutionError(cells, size, starCount, rows, columns, groups)
+            if (error.message) {
+                console.log("Found error", error)
+                return error
+            }
+        }
+    }
+
+    function pastUnfinishedGroup(cutoff: number): boolean {
+        for (const group of groups) {
+            if (getStarCount(group, cellsCopy) === starCount) continue
+            if (group[group.length - 1] < cutoff) {
+                console.log(`cutoff: ${cutoff} group: ${group}`)
+                return true
+            }
+        }
+        return false
+    }
+
+    /**
+     * isSolved - Returns true if puzzle is solved
+     */
+    function isSolved(cells: Cell[]): boolean {
+        // for each cell that have a star, surrounding cells must have no star
+        for (let i = 0; i < cells.length; i++) {
+            if (cells[i] === Cell.STAR) {
+                if (getNeighbouringIndices(size, i).find(neighbour => cells[neighbour] === Cell.STAR)) {
+                    return false
+                }
+            }
+        }
+        // each row, column, group must have exactly n stars
+        for (const row of rows) {
+            if (getStarCount(row, cells) != starCount) return false
+        }
+        for (const column of columns) {
+            if (getStarCount(column, cells) != starCount) return false
+        }
+        for (const group of groups) {
+            if (getStarCount(group, cells) != starCount) return false
+        }
+        return true
+    }
+}
+
+function getStarCount(group: number[], cells: Cell[]): number {
+    return group.filter(index => cells[index] === Cell.STAR).length
+}
+
+function getCellCount(group: number[], cells: Cell[], cellType: Cell): number {
+    return group.filter(index => cells[index] === cellType).length
 }
 
 export function getNextStep(cells: Cell[], size: number, starCount: number, groups: number[][], cellIndexToGroupIndex: number[], rows: number[][], columns: number[][]): PuzzleStep {
     // apply each rule and return first match
     // for all groups, rows, columns, return if remainingStars == remainingSpaces
     const confirmedPartitions: number[][] = []
+    const neighbours = getAllNeighbouringIndices(size)
     let nextStep = processLastSpacesRule(groups, "group")
     if (nextStep) return nextStep
     nextStep = processLastSpacesRule(rows, "row")
@@ -122,9 +246,27 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
     if (nextStep) return nextStep
     nextStep = processConfirmedBlockRule(groups, "group", 2 * starCount)
     if (nextStep) return nextStep
-    nextStep = processCombinedGroupBlockRule()
-    if (nextStep) return nextStep
-    return {indices: [], type: Cell.BLANK, message: 'Unknown'}
+    // nextStep = processCombinedGroupBlockRule()
+    // if (nextStep) return nextStep
+    return {message: 'Unknown'}
+
+    function starCanBePlaced(i: number) {
+        if (cells[i] !== Cell.BLANK) return false
+        if (neighbours[i].some(index => cells[index] === Cell.STAR)) return false
+        if (getRemainingStarCount(groups[cellIndexToGroupIndex[i]]) === 0) return false
+        const { x, y } = getCoords(i, size)
+        if (getRemainingStarCount(rows[y]) === 0) return false
+        if (getRemainingStarCount(columns[x]) === 0) return false
+        return true
+    }
+
+    function starsCanBePlaced(indices: number[]) {
+        for (const i of indices) {
+            if (!starCanBePlaced(i)) return false
+            if (neighbours[i].some(index => indices.includes(index))) return false
+        }
+        return true
+    }
     
     function getSharedNeighbour(indices: number[]): number[] {
         let neighbours = getNeighbouringIndices(size, indices[0])
@@ -171,6 +313,7 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
         for (const group of targetGroups) {
             const indices = group.filter(index => cells[index] === Cell.BLANK)
             if (indices.length === 0) continue
+            if (!starsCanBePlaced(indices)) continue
             if (getRemainingStarCount(group) === indices.length)
                 return {
                     indices,
@@ -247,13 +390,15 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
                 which is equal to the number of remaining stars. 
                 Therefore, each block must contain a star.`.replaceAll('\n', '')
             for (const partition of partitions) {
-                if (partition.length === 1)
-                    return {
-                        indices: partition,
-                        otherIndices: target,
-                        type: Cell.STAR,
-                        message: baseMessage + ` This block only has one space, so it must be a star.`
-                    }
+                if (partition.length === 1) {
+                    if (starCanBePlaced(partition[0]))
+                        return {
+                            indices: partition,
+                            otherIndices: target,
+                            type: Cell.STAR,
+                            message: baseMessage + ` This block only has one space, so it must be a star.`
+                        }
+                }
                 const indices = getSharedNeighbour(partition).filter(index => cells[index] != Cell.X)
                 if (indices.length === 0) continue
                 return {
@@ -370,6 +515,13 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
     }
 }
 
+export function applyNextStep(cells: Cell[], nextStep: PuzzleStep, inPlace: boolean = false) {
+    const newCells = inPlace ? cells : cells.slice()
+    const { indices, type } = nextStep
+    if (indices === undefined || indices.length === 0 || type === undefined) return
+    indices.forEach(index => newCells[index] = type)
+    return newCells
+}
     
 export function getNeighbouringIndices(size: number, i: number): number[] {
     const { x, y } = getCoords(i, size)
@@ -384,6 +536,10 @@ export function getNeighbouringIndices(size: number, i: number): number[] {
         [x + 1, y + 1],
     ].filter(([x, y]) => x >= 0 && x < size && y >= 0 && y < size)
     .map(([x, y]) => getIndex(x, y, size))
+}
+
+export function getAllNeighbouringIndices(size: number): Cell[][] {
+    return range(0, size**2).map(i => getNeighbouringIndices(size, i))
 }
 
 export function getCoords(i: number, size: number): { x: number, y: number} {

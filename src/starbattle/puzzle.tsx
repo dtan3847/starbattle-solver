@@ -62,6 +62,7 @@ export default function StarBattlePuzzle(): JSX.Element {
     const [resizingHorizontalWalls, setResizingHorizontalWalls] = useState<boolean[] | null>(null)
     const [resizingVerticalWalls, setResizingVerticalWalls] = useState<boolean[] | null>(null)
     const [isDragging, setIsDragging] = useState(false)
+    const [showNextStep, setShowNextStep] = useState(false)
 
     const cellsToDisplay = resizingCells || cells
     const horizontalWallsToDisplay = resizingHorizontalWalls || horizontalWalls
@@ -104,8 +105,8 @@ export default function StarBattlePuzzle(): JSX.Element {
     }
 
     const solutionError = getSolutionErrorIfSolving()
-    let nextStep = solutionError.indices ? {} : getNextStepIfSolving()
-    let starBattleMessage = JSON.stringify(solutionError.message ? solutionError : nextStep)
+    const nextStep = solutionError.indices ? {} : getNextStepIfNeeded()
+    const starBattleMessage = JSON.stringify(solutionError.message || nextStep.message || '').slice(1, -1)
     
     const typeToSymbol = {
         [Cell.BLANK]: "",
@@ -152,7 +153,7 @@ export default function StarBattlePuzzle(): JSX.Element {
     return (
         <div className="StarBattle-Puzzle">
             <Button
-                variant="contained"
+                variant="outlined"
                 onClick={() => setMode((mode + 1) % 2)}
             >
                 Mode: {Mode[mode]}
@@ -178,7 +179,10 @@ export default function StarBattlePuzzle(): JSX.Element {
             {
                 mode === Mode.SOLVE
                 ? (<>
-                    <Button variant="contained" onClick={applyNextStepAndSave}>
+                    <Button variant="contained" onClick={() => setShowNextStep(!showNextStep)}>
+                        {showNextStep ? "Hide Next Step" : "Show Next Step"}
+                    </Button>
+                    <Button variant="contained" onClick={applyNextStepAndSave} disabled={!(showNextStep && nextStep.type)}>
                         Apply Next Step
                     </Button>
                     <Button variant="contained" onClick={autoSolve}>
@@ -203,8 +207,8 @@ export default function StarBattlePuzzle(): JSX.Element {
         return getSolutionError(cells, size, starCount, rows, columns, groups)
     }
 
-    function getNextStepIfSolving() {
-        if (mode !== Mode.SOLVE) return {}
+    function getNextStepIfNeeded() {
+        if (mode !== Mode.SOLVE || !showNextStep) return {}
         if (!isSolvable()) return {  message: 'Unsolvable' }
         if (isSolved()) return {  message: 'Solved' }
         return getNextStep(cells, size, starCount, groups, cellIndexToGroupIndex, rows, columns)
@@ -284,6 +288,7 @@ export default function StarBattlePuzzle(): JSX.Element {
         setCells(data.cells)
         setHorizontalWalls(data.horizontalWalls)
         setVerticalWalls(data.verticalWalls)
+        setShowNextStep(false)
     }
 
     function handleClearClick() {
@@ -415,14 +420,11 @@ export default function StarBattlePuzzle(): JSX.Element {
     }
 
     function makeCellClickHandler(i: number) {
-        const { x, y } = getCoords(i, size)
-        const margin = 7 // px
         return (event: React.MouseEvent<HTMLElement>) => {
             if (resizingCells !== null) return
             if (event.target instanceof HTMLElement) {
+                setShowNextStep(false)
                 event.preventDefault()
-                const { clientX, clientY, target: { offsetLeft, offsetTop, offsetWidth, offsetHeight }} = event
-                // console.log(x, y, clientX, clientY, offsetLeft, offsetTop, offsetLeft + offsetWidth, offsetTop + offsetHeight)
                 if (mode === Mode.SOLVE) {
                     // left click to cycle symbol forward, right click to cycle back
                     if (event.type === "click") setCell(i, (cells[i] + 1) % 3)

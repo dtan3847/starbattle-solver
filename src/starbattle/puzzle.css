@@ -78,3 +78,7 @@
 #StarBattle-SliderBox {
     max-width: 500px;
 }
+
+.Mui-disabled {
+    color: lightgrey !important;
+}

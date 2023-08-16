@@ -1,6 +1,7 @@
-import { Cell, PuzzleStep } from './types';
+import { Cell, PuzzleData, PuzzleStep } from './types';
 
-export function getSolutionError(cells: Cell[], size: number, starCount: number, rows: number[][], columns: number[][], groups: number[][]): PuzzleStep {
+export function getSolutionError(puzzleData: PuzzleData): PuzzleStep {
+    const { cells, size, starCount, rows, columns, groups } = puzzleData
     let error = findSimpleError()
     if (error) return error
     // return { message: "Unsolvable" }
@@ -56,8 +57,10 @@ export function getSolutionError(cells: Cell[], size: number, starCount: number,
 
 }
 
-export function findSolution(cells: Cell[], size: number, starCount: number, rows: number[][], columns: number[][], groups: number[][], cellIndexToGroupIndex: number[]): Cell[] | undefined  {
+export function findSolution(puzzleData: PuzzleData): Cell[] | undefined  {
+    const { cells, size, starCount, rows, columns, groups, cellIndexToGroupIndex } = puzzleData
     let cellsCopy = cells.slice()
+    puzzleData.cells = cellsCopy
     const guesses: number[] = []
     const res = findSolutionHelper()
     console.log("After solution helper, res:", res)
@@ -72,7 +75,7 @@ export function findSolution(cells: Cell[], size: number, starCount: number, row
         if (err !== undefined) return
         console.log("After logic")
         // Successful base case
-        if (isSolved(cellsCopy)) return cellsCopy
+        if (isSolved(puzzleData)) return cellsCopy
         // Otherwise, guess and check
         for (let i = startIndex; i < cellsCopy.length; i++) {
             if (pastUnfinishedGroup(i)) break
@@ -93,6 +96,7 @@ export function findSolution(cells: Cell[], size: number, starCount: number, row
             }
             // Guess was wrong
             cellsCopy = backup
+            puzzleData.cells = cellsCopy
             cellsCopy[i] = Cell.X
             guesses.pop()
             const err = applyNextSteps()
@@ -103,10 +107,10 @@ export function findSolution(cells: Cell[], size: number, starCount: number, row
 
     function applyNextSteps() {
         while (true) {
-            let nextStep = getNextStep(cellsCopy, size, starCount, groups, cellIndexToGroupIndex, rows, columns)
+            let nextStep = getNextStep(puzzleData)
             const newCells = applyNextStep(cellsCopy, nextStep, true)
             if (!newCells) return
-            const error = getSolutionError(cells, size, starCount, rows, columns, groups)
+            const error = getSolutionError(puzzleData)
             if (error.message) {
                 console.log("Found error", error)
                 return error
@@ -124,42 +128,44 @@ export function findSolution(cells: Cell[], size: number, starCount: number, row
         }
         return false
     }
+}
 
-    /**
-     * isSolved - Returns true if puzzle is solved
-     */
-    function isSolved(cells: Cell[]): boolean {
-        // for each cell that have a star, surrounding cells must have no star
-        for (let i = 0; i < cells.length; i++) {
-            if (cells[i] === Cell.STAR) {
-                if (getNeighbouringIndices(size, i).find(neighbour => cells[neighbour] === Cell.STAR)) {
-                    return false
-                }
+/**
+ * isSolved - Returns true if puzzle is solved
+ */
+export function isSolved(puzzleData: PuzzleData): boolean {
+    const { cells, size, starCount, rows, columns, groups } = puzzleData
+    // for each cell that have a star, surrounding cells must have no star
+    for (let i = 0; i < cells.length; i++) {
+        if (cells[i] === Cell.STAR) {
+            if (getNeighbouringIndices(size, i).find(neighbour => cells[neighbour] === Cell.STAR)) {
+                return false
             }
         }
-        // each row, column, group must have exactly n stars
-        for (const row of rows) {
-            if (getStarCount(row, cells) != starCount) return false
-        }
-        for (const column of columns) {
-            if (getStarCount(column, cells) != starCount) return false
-        }
-        for (const group of groups) {
-            if (getStarCount(group, cells) != starCount) return false
-        }
-        return true
     }
+    // each row, column, group must have exactly n stars
+    for (const row of rows) {
+        if (getStarCount(row, cells) != starCount) return false
+    }
+    for (const column of columns) {
+        if (getStarCount(column, cells) != starCount) return false
+    }
+    for (const group of groups) {
+        if (getStarCount(group, cells) != starCount) return false
+    }
+    return true
 }
 
 function getStarCount(group: number[], cells: Cell[]): number {
-    return group.filter(index => cells[index] === Cell.STAR).length
+    return getCellCount(group, cells, Cell.STAR)
 }
 
 function getCellCount(group: number[], cells: Cell[], cellType: Cell): number {
     return group.filter(index => cells[index] === cellType).length
 }
 
-export function getNextStep(cells: Cell[], size: number, starCount: number, groups: number[][], cellIndexToGroupIndex: number[], rows: number[][], columns: number[][]): PuzzleStep {
+export function getNextStep(puzzleData: PuzzleData): PuzzleStep {
+    const { cells, size, starCount, rows, columns, groups, cellIndexToGroupIndex } = puzzleData
     // apply each rule and return first match
     // for all groups, rows, columns, return if remainingStars == remainingSpaces
     const confirmedPartitions: number[][] = []
@@ -253,10 +259,10 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
     function starCanBePlaced(i: number) {
         if (cells[i] !== Cell.BLANK) return false
         if (neighbours[i].some(index => cells[index] === Cell.STAR)) return false
-        if (getRemainingStarCount(groups[cellIndexToGroupIndex[i]]) === 0) return false
+        if (getRemainingStarCount(cells, groups[cellIndexToGroupIndex[i]], starCount) === 0) return false
         const { x, y } = getCoords(i, size)
-        if (getRemainingStarCount(rows[y]) === 0) return false
-        if (getRemainingStarCount(columns[x]) === 0) return false
+        if (getRemainingStarCount(cells, rows[y], starCount) === 0) return false
+        if (getRemainingStarCount(cells, columns[x], starCount) === 0) return false
         return true
     }
 
@@ -305,16 +311,12 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
         return Array.from(groups)
     }
 
-    function getRemainingStarCount(group: number[], totalStarCount: number = starCount) {
-        return totalStarCount - group.filter(index => cells[index] === Cell.STAR).length
-    }
-
     function processLastSpacesRule(targetGroups: number[][], name: string): PuzzleStep | undefined {
         for (const group of targetGroups) {
             const indices = group.filter(index => cells[index] === Cell.BLANK)
             if (indices.length === 0) continue
             if (!starsCanBePlaced(indices)) continue
-            if (getRemainingStarCount(group) === indices.length)
+            if (getRemainingStarCount(cells, group, starCount) === indices.length)
                 return {
                     indices,
                     type: Cell.STAR,
@@ -325,7 +327,7 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
 
     function processNoStarsLeftRule(targetGroups: number[][], name: string): PuzzleStep | undefined {
         for (const group of targetGroups) {
-            if (getRemainingStarCount(group) === 0) {
+            if (getRemainingStarCount(cells, group, starCount) === 0) {
                 const indices = group.filter(index => cells[index] === Cell.BLANK)
                 if (indices.length === 0) continue
                 return {
@@ -364,7 +366,7 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
             const remainingGroup = group.filter(index => cells[index] === Cell.BLANK && !neighbours.includes(index))
             // console.log(i, name, group, remainingGroup)
             const partitions = partitionCells(size, remainingGroup)
-            if (partitions.length >= getRemainingStarCount(group)) continue
+            if (partitions.length >= getRemainingStarCount(cells, group, starCount)) continue
             return {
                 indices: [i],
                 otherIndices: group,
@@ -378,7 +380,7 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
         for (const target of targets) {
             const blankGroup = target.filter(index => cells[index] === Cell.BLANK)
             const partitions = partitionCells(size, blankGroup)
-            const remainingStarCount = getRemainingStarCount(target, starCountPerTarget)
+            const remainingStarCount = getRemainingStarCount(cells, target, starCountPerTarget)
             // console.log("target", target, "parts", partitions, "remainingStarCount", remainingStarCount)
             if (partitions.length !== remainingStarCount) continue
             partitions.forEach(partition => addConfirmedPartition(partition))
@@ -413,6 +415,7 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
 
     // The block rule can be applied to multiple groups joined as one.
     // There may be fewer partitions as some may stretch across group borders
+    // TODO: too slow; is there a faster way?
     function processCombinedGroupBlockRule(): PuzzleStep | undefined {
         // For each group, find neighbours (with greater index)
         const groupNeighbours = getGroupNeighbours()
@@ -495,7 +498,7 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
      */
     function processConfirmedBlockRule(groups: number[][], name: string, starCountPerGroup: number = starCount): PuzzleStep | undefined {
         for (const group of groups) {
-            const remainingStarCount = getRemainingStarCount(group, starCountPerGroup)
+            const remainingStarCount = getRemainingStarCount(cells, group, starCountPerGroup)
             if (remainingStarCount !== 1) continue
             const blankGroup = group.filter(index => cells[index] === Cell.BLANK)
             const match = confirmedPartitions.find(partition => partition.every(index => group.includes(index)))
@@ -513,6 +516,10 @@ export function getNextStep(cells: Cell[], size: number, starCount: number, grou
             }
         }
     }
+}
+
+function getRemainingStarCount(cells: Cell[], group: number[], starCountPerGroup: number) {
+    return starCountPerGroup - group.filter(index => cells[index] === Cell.STAR).length
 }
 
 export function applyNextStep(cells: Cell[], nextStep: PuzzleStep, inPlace: boolean = false) {

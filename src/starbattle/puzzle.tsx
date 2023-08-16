@@ -10,6 +10,7 @@ import {
     getSolutionError,
     findSolution,
     getNextStep,
+    isSolved,
     getCoords,
     getIndex,
     getAllNeighbouringIndices,
@@ -73,6 +74,8 @@ export default function StarBattlePuzzle(): JSX.Element {
     const [mode, setMode] = useState(Mode.DRAW)
     const rows = useMemo(() => range(0, displaySize).map(y => getRowIndices(y)), [displaySize])
     const columns = useMemo(() => range(0, displaySize).map(x => getColumnIndices(x)), [displaySize])
+    const puzzleData = useMemo(() => { return {cells, size: displaySize, starCount, rows, columns, groups, cellIndexToGroupIndex} },
+                               [cells, displaySize, starCount, groups, cellIndexToGroupIndex])
 
     const cellPartitionResidue: number[] = []
     const groupPartitions: number[][][] = groups.map(group => (
@@ -204,18 +207,18 @@ export default function StarBattlePuzzle(): JSX.Element {
     function getSolutionErrorIfSolving() {
         if (mode !== Mode.SOLVE) return {}
         if (resizingCells !== null) return { message: 'Resizing' }
-        return getSolutionError(cells, size, starCount, rows, columns, groups)
+        return getSolutionError(puzzleData)
     }
 
     function getNextStepIfNeeded() {
         if (mode !== Mode.SOLVE || !showNextStep) return {}
         if (!isSolvable()) return {  message: 'Unsolvable' }
-        if (isSolved()) return {  message: 'Solved' }
-        return getNextStep(cells, size, starCount, groups, cellIndexToGroupIndex, rows, columns)
+        if (isSolved(puzzleData)) return {  message: 'Solved' }
+        return getNextStep(puzzleData)
     }
 
     function autoSolve() {
-        const solution = findSolution(cells, size, starCount, rows, columns, groups, cellIndexToGroupIndex)
+        const solution = findSolution(puzzleData)
         if (solution) {
             setCells(solution)
         }
@@ -229,31 +232,6 @@ export default function StarBattlePuzzle(): JSX.Element {
         // for each cell with star, surrounding cells must have no star
         // each row, column, group must have at most n stars
         //todo
-        return true
-    }
-
-    /**
-     * isSolved - Returns true if puzzle is solved
-     */
-    function isSolved(): boolean {
-        // for each cell that have a star, surrounding cells must have no star
-        for (let i = 0; i < cells.length; i++) {
-            if (cells[i] === Cell.STAR) {
-                if (neighbours[i].find(neighbour => cells[neighbour] === Cell.STAR)) {
-                    return false
-                }
-            }
-        }
-        // each row, column, group must have exactly n stars
-        for (const row of rows) {
-            if (getStarCount(row.map(i => cells[i])) != starCount) return false
-        }
-        for (const column of columns) {
-            if (getStarCount(column.map(i => cells[i])) != starCount) return false
-        }
-        for (const group of groups) {
-            if (getStarCount(group.map(i => cells[i])) != starCount) return false
-        }
         return true
     }
 

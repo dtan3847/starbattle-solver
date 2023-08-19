@@ -1,19 +1,18 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import classNames from 'classnames';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Slider from '@mui/material/Slider';
+import LoadingButton from '@mui/lab/LoadingButton';
 
 import { Cell, PuzzleStep } from './types'
 import {
     applyNextStep,
     getSolutionError,
-    findSolution,
     getNextStep,
     isSolved,
     getCoords,
     getIndex,
-    getAllNeighbouringIndices,
     partitionCells,
     range,
 } from './utils'
@@ -64,18 +63,31 @@ export default function StarBattlePuzzle(): JSX.Element {
     const [resizingVerticalWalls, setResizingVerticalWalls] = useState<boolean[] | null>(null)
     const [isDragging, setIsDragging] = useState(false)
     const [showNextStep, setShowNextStep] = useState(false)
+    const [autoSolving, setAutoSolving] = useState(false)
 
     const cellsToDisplay = resizingCells || cells
     const horizontalWallsToDisplay = resizingHorizontalWalls || horizontalWalls
     const verticalWallsToDisplay = resizingVerticalWalls || verticalWalls
 
-    const neighbours = useMemo(() => getAllNeighbouringIndices(displaySize), [displaySize])
     const {groups, cellIndexToGroupIndex} = useMemo(() => makeGroups(), [displaySize, horizontalWallsToDisplay, verticalWallsToDisplay])
     const [mode, setMode] = useState(Mode.DRAW)
     const rows = useMemo(() => range(0, displaySize).map(y => getRowIndices(y)), [displaySize])
     const columns = useMemo(() => range(0, displaySize).map(x => getColumnIndices(x)), [displaySize])
     const puzzleData = useMemo(() => { return {cells, size: displaySize, starCount, rows, columns, groups, cellIndexToGroupIndex} },
                                [cells, displaySize, starCount, groups, cellIndexToGroupIndex])
+    
+    const solverWorker: Worker = useMemo(() => new Worker(new URL("solver.worker.ts", import.meta.url)), [])
+
+    useEffect(() => {
+        if (window.Worker) {
+            solverWorker.onmessage = (e: MessageEvent<Cell[] | undefined>) => {
+                if (e.data) {
+                    setCells(e.data)
+                }
+                setAutoSolving(false)
+            }
+        }
+    }, [solverWorker])
 
     const cellPartitionResidue: number[] = []
     const groupPartitions: number[][][] = groups.map(group => (
@@ -188,9 +200,9 @@ export default function StarBattlePuzzle(): JSX.Element {
                     <Button variant="contained" onClick={applyNextStepAndSave} disabled={!(showNextStep && nextStep.type)}>
                         Apply Next Step
                     </Button>
-                    <Button variant="contained" onClick={autoSolve}>
+                    <LoadingButton variant="contained" onClick={autoSolve} loading={autoSolving}>
                         Auto Solve
-                    </Button>
+                    </LoadingButton>
                 </>)
                 : ''
             }
@@ -216,11 +228,11 @@ export default function StarBattlePuzzle(): JSX.Element {
         if (isSolved(puzzleData)) return {  message: 'Solved' }
         return getNextStep(puzzleData)
     }
-
+    
     function autoSolve() {
-        const solution = findSolution(puzzleData)
-        if (solution) {
-            setCells(solution)
+        if (window.Worker) {
+            setAutoSolving(true)
+            solverWorker.postMessage(puzzleData)
         }
     }
     

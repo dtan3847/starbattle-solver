@@ -3,6 +3,7 @@ import classNames from 'classnames';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Slider from '@mui/material/Slider';
+import Stack from '@mui/material/Stack';
 import LoadingButton from '@mui/lab/LoadingButton';
 
 import { Cell, PuzzleStep } from './types'
@@ -166,7 +167,7 @@ export default function StarBattlePuzzle(): JSX.Element {
         )
         : ''
     return (
-        <div className="StarBattle-Puzzle">
+        <Stack className="StarBattle-Puzzle" spacing={2} alignItems="center">
             <Button
                 variant="outlined"
                 onClick={() => setMode((mode + 1) % 2)}
@@ -182,38 +183,40 @@ export default function StarBattlePuzzle(): JSX.Element {
             >
                 {contentCells}
             </div>
-            <Button variant="contained" onClick={savePuzzleToLocalStorage}>
-                Save Puzzle
-            </Button>
-            <Button variant="contained" onClick={loadPuzzleFromLocalStorage}>
-                Load Puzzle
-            </Button>
-            <Button variant="contained" onClick={handleClearClick}>
-                Clear
-            </Button>
-            {
-                mode === Mode.SOLVE
-                ? (<>
-                    <Button variant="contained" onClick={() => setShowNextStep(!showNextStep)}>
-                        {showNextStep ? "Hide Next Step" : "Show Next Step"}
-                    </Button>
-                    <Button variant="contained" onClick={applyNextStepAndSave} disabled={!(showNextStep && nextStep.type)}>
-                        Apply Next Step
-                    </Button>
-                    <LoadingButton variant="contained" onClick={autoSolve} loading={autoSolving}>
-                        Auto Solve
-                    </LoadingButton>
-                </>)
-                : ''
-            }
+            <Stack direction="row" spacing={2}>
+                <Button variant="contained" onClick={savePuzzleToLocalStorage}>
+                    Save Puzzle
+                </Button>
+                <Button variant="contained" onClick={loadPuzzleFromLocalStorage}>
+                    Load Puzzle
+                </Button>
+                <Button variant="contained" onClick={handleClearClick}>
+                    Clear
+                </Button>
+                {
+                    mode === Mode.SOLVE
+                    ? (<>
+                        <Button variant="contained" onClick={() => setShowNextStep(!showNextStep)}>
+                            {showNextStep ? "Hide Next Step" : "Show Next Step"}
+                        </Button>
+                        <Button variant="contained" onClick={applyNextStepAndSave} disabled={!(showNextStep && nextStep.type)}>
+                            Apply Next Step
+                        </Button>
+                        <LoadingButton variant="contained" onClick={autoSolve} loading={autoSolving}>
+                            Auto Solve
+                        </LoadingButton>
+                    </>)
+                    : ''
+                }
+            </Stack>
             {
                 mode === Mode.SOLVE
                 ? (<div className="StarBattle-Message">
                         {starBattleMessage}
                     </div>)
-                : ''
+                : ' '
             }
-        </div>
+        </Stack>
     )
 
     function getSolutionErrorIfSolving() {

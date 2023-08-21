@@ -1,20 +1,19 @@
 import React from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import logo from './logo.svg';
 import './App.css';
 
 import StarBattlePuzzle from './starbattle/puzzle';
 
-const darkTheme = createTheme({
+const theme = createTheme({
   palette: {
-    mode: 'dark',
+    mode: 'light',
   },
 });
 
 function App() {
   return (
-    <ThemeProvider theme={darkTheme}>
+    <ThemeProvider theme={theme}>
       <CssBaseline />
       <div className="App">
         <header className="App-header">

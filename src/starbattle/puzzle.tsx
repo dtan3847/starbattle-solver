@@ -183,7 +183,7 @@ export default function StarBattlePuzzle(): JSX.Element {
             >
                 {contentCells}
             </div>
-            <Stack direction="row" spacing={2}>
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
                 <Button variant="contained" onClick={savePuzzleToLocalStorage}>
                     Save Puzzle
                 </Button>

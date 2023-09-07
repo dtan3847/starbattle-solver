@@ -78,3 +78,7 @@
 #StarBattle-SliderBox {
     max-width: 500px;
 }
+
+.MuiButton-root {
+    white-space: nowrap;
+}

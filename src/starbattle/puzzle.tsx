@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import classNames from 'classnames';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Container from '@mui/material/Container';
 import Slider from '@mui/material/Slider';
 import Stack from '@mui/material/Stack';
 import LoadingButton from '@mui/lab/LoadingButton';
@@ -167,35 +168,37 @@ export default function StarBattlePuzzle(): JSX.Element {
         )
         : ''
     return (
-        <Stack className="StarBattle-Puzzle" spacing={2} alignItems="center">
-            <Button
-                variant="outlined"
-                onClick={() => setMode((mode + 1) % 2)}
-            >
-                Mode: {Mode[mode]}
-            </Button>
-            {sliderBox}
-            <div
-                className="StarBattle-Grid"
-                style={{
-                    gridTemplateColumns: `repeat(${displaySize}, auto)`
-                }}
-            >
-                {contentCells}
-            </div>
-            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-                <Button variant="contained" onClick={savePuzzleToLocalStorage}>
-                    Save Puzzle
+        <Container>
+            <Stack className="StarBattle-Puzzle" spacing={2} alignItems="center" minWidth="100%">
+                <Button
+                    variant="outlined"
+                    onClick={() => setMode((mode + 1) % 2)}
+                >
+                    Mode: {Mode[mode]}
                 </Button>
-                <Button variant="contained" onClick={loadPuzzleFromLocalStorage}>
-                    Load Puzzle
-                </Button>
-                <Button variant="contained" onClick={handleClearClick}>
-                    Clear
-                </Button>
+                {sliderBox}
+                <div
+                    className="StarBattle-Grid"
+                    style={{
+                        gridTemplateColumns: `repeat(${displaySize}, auto)`
+                    }}
+                >
+                    {contentCells}
+                </div>
+                <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap justifyContent="center">
+                    <Button variant="contained" onClick={savePuzzleToLocalStorage}>
+                        Save Puzzle
+                    </Button>
+                    <Button variant="contained" onClick={loadPuzzleFromLocalStorage}>
+                        Load Puzzle
+                    </Button>
+                    <Button variant="contained" onClick={handleClearClick}>
+                        Clear
+                    </Button>
+                </Stack>
                 {
                     mode === Mode.SOLVE
-                    ? (<>
+                    ? (<Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap justifyContent="center">
                         <Button variant="contained" onClick={() => setShowNextStep(!showNextStep)}>
                             {showNextStep ? "Hide Next Step" : "Show Next Step"}
                         </Button>
@@ -205,18 +208,18 @@ export default function StarBattlePuzzle(): JSX.Element {
                         <LoadingButton variant="contained" onClick={autoSolve} loading={autoSolving}>
                             Auto Solve
                         </LoadingButton>
-                    </>)
+                    </Stack>)
                     : ''
                 }
+                {
+                    mode === Mode.SOLVE
+                    ? (<div className="StarBattle-Message">
+                            {starBattleMessage}
+                        </div>)
+                    : ' '
+                }
             </Stack>
-            {
-                mode === Mode.SOLVE
-                ? (<div className="StarBattle-Message">
-                        {starBattleMessage}
-                    </div>)
-                : ' '
-            }
-        </Stack>
+        </Container>
     )
 
     function getSolutionErrorIfSolving() {

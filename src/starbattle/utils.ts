@@ -1,5 +1,17 @@
 import { Cell, PuzzleData, PuzzleStep } from './types';
 
+/**
+ * Analyzes a puzzle state to identify any rule violations.
+ *
+ * @param {PuzzleData} puzzleData - The current state of the puzzle, including cell configurations, 
+ *                                  puzzle size, star count, and structure of rows, columns, and groups.
+ * @returns {PuzzleStep} Returns a PuzzleStep object containing error details if a violation is found; 
+ *                       otherwise, returns an empty object.
+ *
+ * This function checks for basic StarBattle puzzle rules, such as ensuring that stars are not adjacent 
+ * (even diagonally) and that each row, column, and group has the correct number of stars. If an error 
+ * is found, it returns the indices of the problematic cells and an error message.
+ */
 export function getSolutionError(puzzleData: PuzzleData): PuzzleStep {
     const { cells, size, starCount, rows, columns, groups } = puzzleData
     let error = findSimpleError()
@@ -57,6 +69,21 @@ export function getSolutionError(puzzleData: PuzzleData): PuzzleStep {
 
 }
 
+/**
+ * Attempts to find a solution for the given puzzle data and returns the solved state as an array of cells.
+ *
+ * @param {PuzzleData} puzzleData - The puzzle data, including the current state of the puzzle grid
+ *                                  and configuration settings like puzzle size and star count.
+ * @returns {Cell[] | undefined} Returns an array of cells representing the solved state of the puzzle
+ *                               if a solution is found. Each cell in the array represents a specific
+ *                               state (e.g., empty, star, etc.) in the puzzle grid. Returns undefined
+ *                               if no solution is found.
+ *
+ * This function applies solving algorithms to the provided puzzle data in an attempt to find a valid
+ * solution. It employs logical rules and techniques specific to StarBattle puzzles to determine the
+ * placement of stars. If a solution is found, the function returns the solved state, which can be used
+ * to update the puzzle grid in the user interface. If the puzzle is unsolvable, it returns undefined.
+ */
 export function findSolution(puzzleData: PuzzleData): Cell[] | undefined  {
     const { cells, size, starCount, rows, columns, groups, cellIndexToGroupIndex } = puzzleData
     let cellsCopy = cells.slice()
@@ -89,7 +116,10 @@ export function findSolution(puzzleData: PuzzleData): Cell[] | undefined  {
             const backup = cellsCopy.slice()
             cellsCopy[i] = Cell.STAR
             guesses.push(i)
-            console.log("guesses,", guesses.slice())
+            console.log("guesses,", guesses.map(g => {
+                const { x, y } = getCoords(g, size)
+                return [g, x, y]
+            }))
             const res = findSolutionHelper(i + 1)
             if (res) {
                 return res
@@ -131,7 +161,15 @@ export function findSolution(puzzleData: PuzzleData): Cell[] | undefined  {
 }
 
 /**
- * isSolved - Returns true if puzzle is solved
+ * Determines if the puzzle is solved.
+ *
+ * @param {PuzzleData} puzzleData - The current state of the puzzle, including the grid configuration 
+ *                                  and other relevant data.
+ * @returns {boolean} Returns true if the puzzle is correctly solved, otherwise false.
+ *
+ * This function checks the entire state of the puzzle to determine if it meets all the criteria for 
+ * being solved. It evaluates if the correct number of stars are placed according to the game rules and 
+ * verifies that no rule violations exist in the current configuration.
  */
 export function isSolved(puzzleData: PuzzleData): boolean {
     const { cells, size, starCount, rows, columns, groups } = puzzleData
@@ -156,14 +194,50 @@ export function isSolved(puzzleData: PuzzleData): boolean {
     return true
 }
 
+/**
+ * Counts the number of stars in a specified group of cells.
+ *
+ * @param {number[]} group - An array of indices representing a group of cells in the puzzle.
+ * @param {Cell[]} cells - An array of cells representing the current state of the puzzle.
+ * @returns {number} Returns the count of stars present in the specified group.
+ *
+ * This function calculates the number of cells in the provided group that are marked as stars. It is
+ * commonly used to verify puzzle rules related to star count in rows, columns, or regions.
+ */
 function getStarCount(group: number[], cells: Cell[]): number {
     return getCellCount(group, cells, Cell.STAR)
 }
 
+/**
+ * Counts the number of cells of a specific type in a given group.
+ *
+ * @param {number[]} group - An array of indices representing a group of cells in the puzzle.
+ * @param {Cell[]} cells - An array of cells representing the current state of the puzzle.
+ * @param {Cell} cellType - The type of cell to count (e.g., Cell.STAR, Cell.EMPTY).
+ * @returns {number} Returns the count of cells of the specified type in the group.
+ *
+ * This function calculates how many cells of a specific type are present in the provided group.
+ * It is a general utility function used to count various types of cells, like stars or empty cells,
+ * in a specific part of the puzzle.
+ */
 function getCellCount(group: number[], cells: Cell[], cellType: Cell): number {
     return group.filter(index => cells[index] === cellType).length
 }
 
+/**
+ * Determines the next logical step in solving the puzzle.
+ *
+ * @param {PuzzleData} puzzleData - The current state of the puzzle, including the grid configuration 
+ *                                  and other relevant data.
+ * @returns {PuzzleStep} Returns a PuzzleStep object representing the next step in the puzzle-solving
+ *                       process. This includes details about the action to be taken and any relevant
+ *                       indices or messages.
+ *
+ * This function analyzes the current state of the puzzle and identifies the next logical move that
+ * brings the puzzle closer to a solution. It applies various solving techniques and rules specific to
+ * StarBattle puzzles to deduce this next step. The returned PuzzleStep can then be used to update the
+ * puzzle state or guide the user on what action to take next.
+ */
 export function getNextStep(puzzleData: PuzzleData): PuzzleStep {
     const { cells, size, starCount, rows, columns, groups, cellIndexToGroupIndex } = puzzleData
     // apply each rule and return first match
@@ -518,10 +592,32 @@ export function getNextStep(puzzleData: PuzzleData): PuzzleStep {
     }
 }
 
+/**
+ * Calculates the number of stars yet to be placed in a specific group.
+ *
+ * @param {Cell[]} cells - An array of cells representing the current state of the puzzle.
+ * @param {number[]} group - An array of indices representing a group of cells in the puzzle.
+ * @param {number} starCountPerGroup - The required number of stars per group.
+ * @returns {number} The number of stars still needed to meet the required count in the group.
+ *
+ * This function determines how many more stars need to be placed in a given group to meet the
+ * specified star count. It is useful for guiding the puzzle solving process.
+ */
 function getRemainingStarCount(cells: Cell[], group: number[], starCountPerGroup: number) {
     return starCountPerGroup - group.filter(index => cells[index] === Cell.STAR).length
 }
 
+/**
+ * Applies the next step in the puzzle solving process to the puzzle grid.
+ *
+ * @param {Cell[]} cells - The current state of the puzzle grid.
+ * @param {PuzzleStep} nextStep - The next step to apply, including indices and cell types.
+ * @param {boolean} inPlace - Whether to modify the cells array in place. Default is false.
+ * @returns {Cell[] | undefined} The updated puzzle grid after applying the step, or undefined if no action is taken.
+ *
+ * This function updates the puzzle grid based on the provided next step, which may involve placing or removing
+ * stars or other actions. If 'inPlace' is true, the original grid is modified; otherwise, a new grid is returned.
+ */
 export function applyNextStep(cells: Cell[], nextStep: PuzzleStep, inPlace: boolean = false) {
     const newCells = inPlace ? cells : cells.slice()
     const { indices, type } = nextStep
@@ -529,7 +625,17 @@ export function applyNextStep(cells: Cell[], nextStep: PuzzleStep, inPlace: bool
     indices.forEach(index => newCells[index] = type)
     return newCells
 }
-    
+
+/**
+ * Gets the indices of all neighboring cells for a given cell in the puzzle grid.
+ *
+ * @param {number} size - The size of the puzzle grid (assumed to be square).
+ * @param {number} i - The index of the cell for which to find neighbors.
+ * @returns {number[]} An array of indices representing neighboring cells.
+ *
+ * This function calculates the indices of all cells adjacent (including diagonally) to a given cell
+ * in the grid. It is used to check puzzle rules related to neighboring cells.
+ */
 export function getNeighbouringIndices(size: number, i: number): number[] {
     const { x, y } = getCoords(i, size)
     return [
@@ -545,10 +651,29 @@ export function getNeighbouringIndices(size: number, i: number): number[] {
     .map(([x, y]) => getIndex(x, y, size))
 }
 
+/**
+ * Generates a list of neighboring indices for every cell in the puzzle grid.
+ *
+ * @param {number} size - The size of the puzzle grid (assumed to be square).
+ * @returns {Cell[][]} An array where each element is an array of neighboring indices for each cell in the grid.
+ *
+ * This function is a utility to pre-calculate and store all neighboring indices for each cell in the grid,
+ * potentially optimizing operations that frequently require this information.
+ */
 export function getAllNeighbouringIndices(size: number): Cell[][] {
     return range(0, size**2).map(i => getNeighbouringIndices(size, i))
 }
 
+/**
+ * Converts a linear index into x, y coordinates in the puzzle grid.
+ *
+ * @param {number} i - The linear index to convert.
+ * @param {number} size - The size of the puzzle grid (assumed to be square).
+ * @returns {{ x: number, y: number }} An object containing the x and y coordinates corresponding to the index.
+ *
+ * This function is used to translate between a linear array representation of the puzzle grid
+ * and a two-dimensional coordinate system.
+ */
 export function getCoords(i: number, size: number): { x: number, y: number} {
     return {
         x: i % size,
@@ -556,11 +681,31 @@ export function getCoords(i: number, size: number): { x: number, y: number} {
     }
 }
 
+/**
+ * Converts x, y coordinates to a linear index in the puzzle grid.
+ *
+ * @param {number} x - The x coordinate.
+ * @param {number} y - The y coordinate.
+ * @param {number} size - The size of the puzzle grid (assumed to be square).
+ * @returns {number} The linear index corresponding to the x, y coordinates.
+ *
+ * This function is the inverse of 'getCoords', translating two-dimensional coordinates into
+ * a linear index in the puzzle's array representation.
+ */
 export function getIndex(x: number, y: number, size: number): number {
     return y * size + x
 }
 
-// Any 2x2 block can contain at most one star
+/**
+ * Partitions a set of cell indices into groups where each group forms a 2x2 block.
+ *
+ * @param {number} size - The size of the puzzle grid (assumed to be square).
+ * @param {number[]} indices - The indices of cells to be partitioned.
+ * @returns {number[][]} An array of groups, each group being a 2x2 block of cell indices.
+ *
+ * This function is used in solving processes to group cells into blocks that conform to the
+ * StarBattle puzzle rule: each 2x2 block can contain at most one star.
+ */
 export function partitionCells(size: number, indices: number[]): number[][] {
     const partitions: number[][] = []
     // for each index
@@ -583,6 +728,19 @@ export function partitionCells(size: number, indices: number[]): number[][] {
     return partitions
 }
 
+/**
+ * Determines if a given cell is within a 2x2 square area of all cells in a group.
+ *
+ * @param {number} size - The size of the puzzle grid (assumed to be square).
+ * @param {number} i - The index of the cell to check.
+ * @param {number[]} group - An array of indices representing a group of cells in the puzzle.
+ * @returns {boolean} Returns true if the specified cell is within a 2x2 square area of every cell in the group.
+ *
+ * This function checks whether the cell at index 'i' is within a 1-cell radius (forming a 2x2 square)
+ * of every other cell in the provided group. It is useful for implementing rules that depend on the
+ * proximity of cells within the puzzle grid, such as ensuring that stars in a StarBattle puzzle are not
+ * placed too close to each other.
+ */
 function withinSquare(size: number, i: number, group: number[]) {
     const { x, y } = getCoords(i, size)
     return group.every(index => {
@@ -592,6 +750,34 @@ function withinSquare(size: number, i: number, group: number[]) {
 }
 
 // Adapted from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/from#sequence_generator_range
+/**
+ * Creates an array of numbers within a specified range.
+ *
+ * @param {number} start - The start value of the range.
+ * @param {number} stop - The end value of the range.
+ * @param {number} step - The step size between each number in the range.
+ * @returns {number[]} An array containing the sequence of numbers.
+ *
+ * This utility function generates a sequence of numbers starting from 'start', ending at 'stop',
+ * and incrementing by 'step'. It is useful for creating numeric arrays for iteration and indexing.
+ */
 export function range(start: number, stop: number, step: number = 1): number[] {
     return Array.from({ length: (stop - 1 - start) / step + 1 }, (_, i) => start + i * step)
+}
+
+/**
+ * Checks if the given coordinates are out of bounds for a grid of specified dimensions.
+ *
+ * @param {number} x - The x coordinate to check.
+ * @param {number} y - The y coordinate to check.
+ * @param {number} xSize - The horizontal size (width) of the grid.
+ * @param {number} ySize - The vertical size (height) of the grid.
+ * @returns {boolean} True if the coordinates are out of bounds, false otherwise.
+ *
+ * This function is used to validate whether given coordinates lie within the bounds of any grid,
+ * whether it's a puzzle grid, a wall grid, or any other two-dimensional array structure.
+ * It ensures that operations on such grids do not access invalid indices.
+ */
+export function outOfBounds(x: number, y: number, xSize: number, ySize: number): boolean {
+    return x < 0 || x >= xSize || y < 0 || y >= ySize
 }

@@ -15,6 +15,7 @@ import {
     isSolved,
     getCoords,
     getIndex,
+    outOfBounds,
     partitionCells,
     range,
 } from './utils'
@@ -493,12 +494,4 @@ export default function StarBattlePuzzle(): JSX.Element {
     function getColumnIndices(x: number) {
         return range(x, displaySize**2, displaySize)
     }
-}
-
-function getStarCount(cells: Cell[]) {
-    return cells.reduce((sum, current) => current === Cell.STAR ? sum + 1 : sum, 0)
-}
-
-function outOfBounds(x: number, y: number, xSize: number, ySize: number): boolean {
-    return x < 0 || x >= xSize || y < 0 || y >= ySize
 }

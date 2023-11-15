@@ -85,36 +85,38 @@ export function getSolutionError(puzzleData: PuzzleData): PuzzleStep {
  * to update the puzzle grid in the user interface. If the puzzle is unsolvable, it returns undefined.
  */
 export function findSolution(puzzleData: PuzzleData): Cell[] | undefined  {
-    const { cells, size, starCount, rows, columns, groups, cellIndexToGroupIndex } = puzzleData
-    let cellsCopy = cells.slice()
-    puzzleData.cells = cellsCopy
+    const { size, starCount, rows, columns, groups, cellIndexToGroupIndex } = puzzleData
+    let backup = puzzleData.cells
+    puzzleData.cells = backup.slice()
+    let { cells } = puzzleData
     const guesses: number[] = []
     const res = findSolutionHelper()
+    puzzleData.cells = backup
     console.log("After solution helper, res:", res)
     if (res) return res
 
     function findSolutionHelper(startIndex: number = 0): Cell[] | undefined {
         console.log("In findSolutionHelper", startIndex)
         // Early failure check
-        if (pastUnfinishedGroup(startIndex)) return
+        if (pastUnfinishedGroup(startIndex, groups, cells, starCount)) return
         // Use logic where possible
-        const err = applyNextSteps()
+        const err = applyNextSteps(puzzleData)
         if (err !== undefined) return
         console.log("After logic")
         // Successful base case
-        if (isSolved(puzzleData)) return cellsCopy
+        if (isSolved(puzzleData)) return cells
         // Otherwise, guess and check
-        for (let i = startIndex; i < cellsCopy.length; i++) {
-            if (pastUnfinishedGroup(i)) break
-            if (cellsCopy[i] !== Cell.BLANK) continue
+        for (let i = startIndex; i < cells.length; i++) {
+            if (pastUnfinishedGroup(i, groups, cells, starCount)) break
+            if (cells[i] !== Cell.BLANK) continue
             // getNextStep should have already marked the following with X, so they shouldn't need to be checked
-            if (getNeighbouringIndices(size, i).find(neighbour => cellsCopy[neighbour] === Cell.STAR)) continue
-            if (getStarCount(groups[cellIndexToGroupIndex[i]], cellsCopy) === starCount) continue
+            if (getNeighbouringIndices(size, i).find(neighbour => cells[neighbour] === Cell.STAR)) continue
+            if (getStarCount(groups[cellIndexToGroupIndex[i]], cells) === starCount) continue
             const {x, y} = getCoords(i, size)
-            if (getStarCount(rows[y], cellsCopy) === starCount) continue
-            if (getStarCount(columns[x], cellsCopy) === starCount) continue
-            const backup = cellsCopy.slice()
-            cellsCopy[i] = Cell.STAR
+            if (getStarCount(rows[y], cells) === starCount) continue
+            if (getStarCount(columns[x], cells) === starCount) continue
+            const backup = cells.slice()
+            cells[i] = Cell.STAR
             guesses.push(i)
             console.log("guesses,", guesses.map(g => {
                 const { x, y } = getCoords(g, size)
@@ -125,20 +127,24 @@ export function findSolution(puzzleData: PuzzleData): Cell[] | undefined  {
                 return res
             }
             // Guess was wrong
-            cellsCopy = backup
-            puzzleData.cells = cellsCopy
-            cellsCopy[i] = Cell.X
+            cells = backup
+            puzzleData.cells = cells
+            cells[i] = Cell.X
             guesses.pop()
-            const err = applyNextSteps()
+            const err = applyNextSteps(puzzleData)
             if (err !== undefined) return
         }
         // Unsuccessful base case
     }
+}
 
-    function applyNextSteps() {
+function applyNextSteps(puzzleData: PuzzleData, maxGuesses: number = 0) {
+    const backup = puzzleData.cells
+    puzzleData.cells = backup.slice()
+    try {
         while (true) {
-            let nextStep = getNextStep(puzzleData)
-            const newCells = applyNextStep(cellsCopy, nextStep, true)
+            let nextStep = getNextStep(puzzleData, maxGuesses)
+            const newCells = applyNextStep(puzzleData.cells, nextStep, true)
             if (!newCells) return
             const error = getSolutionError(puzzleData)
             if (error.message) {
@@ -146,18 +152,20 @@ export function findSolution(puzzleData: PuzzleData): Cell[] | undefined  {
                 return error
             }
         }
+    } finally {
+        puzzleData.cells = backup
     }
+}
 
-    function pastUnfinishedGroup(cutoff: number): boolean {
-        for (const group of groups) {
-            if (getStarCount(group, cellsCopy) === starCount) continue
-            if (group[group.length - 1] < cutoff) {
-                console.log(`cutoff: ${cutoff} group: ${group}`)
-                return true
-            }
+function pastUnfinishedGroup(cutoff: number, groups: number[][], cells: Cell[], starCount: number): boolean {
+    for (const group of groups) {
+        if (getStarCount(group, cells) === starCount) continue
+        if (group[group.length - 1] < cutoff) {
+            console.log(`cutoff: ${cutoff} group: ${group}`)
+            return true
         }
-        return false
     }
+    return false
 }
 
 /**
@@ -238,7 +246,7 @@ function getCellCount(group: number[], cells: Cell[], cellType: Cell): number {
  * StarBattle puzzles to deduce this next step. The returned PuzzleStep can then be used to update the
  * puzzle state or guide the user on what action to take next.
  */
-export function getNextStep(puzzleData: PuzzleData): PuzzleStep {
+export function getNextStep(puzzleData: PuzzleData, maxGuesses: number = 0): PuzzleStep {
     const { cells, size, starCount, rows, columns, groups, cellIndexToGroupIndex } = puzzleData
     // apply each rule and return first match
     // for all groups, rows, columns, return if remainingStars == remainingSpaces
@@ -328,6 +336,22 @@ export function getNextStep(puzzleData: PuzzleData): PuzzleStep {
     if (nextStep) return nextStep
     // nextStep = processCombinedGroupBlockRule()
     // if (nextStep) return nextStep
+    // TODO: this can be slow, especially when maxGuesses > 1
+    if (maxGuesses > 0) {
+        for (const [i, cell] of cells.entries()) {
+            if (cell !== Cell.BLANK) continue
+            cells[i] = Cell.STAR
+            const error = applyNextSteps(puzzleData, maxGuesses - 1)
+            cells[i] = Cell.BLANK
+            // A star here would lead to an error, so there can be no star here
+            if (error)
+                return {
+                    indices: [i],
+                    type: Cell.X,
+                    message: `A star cannot be placed here. Otherwise, a rule violation will eventually occur.`
+                }
+        }
+    }
     return {message: 'Unknown'}
 
     function starCanBePlaced(i: number) {

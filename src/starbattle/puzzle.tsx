@@ -46,9 +46,13 @@ function StarBattleCell({ value, className, onClick, onDrag }: CellProps): JSX.E
     )
 }
 
+// TODO: separate tooltips for each slider and button
 const DrawTooltip = () => {
     return (
-        <Tooltip title="Left click and drag to create walls. Right click to erase them.">
+        <Tooltip title="Left click and drag to create walls. Right click and drag to erase them.
+                The number in the cell represents which group it belongs to. (Cells with 0 are 
+                in group 0, cells with 1 are in group 1, etc.). The Size slider controls how big 
+                the puzzle is. The Star Count slider controls how many stars are in each column/row/group.">
             <IconButton>
                 <HelpIcon />
             </IconButton>
@@ -58,7 +62,9 @@ const DrawTooltip = () => {
 
 const SolveTooltip = () => {
     return (
-        <Tooltip title="Left click to place stars. Right click to place X's.">
+        <Tooltip title="Left click to place stars. Right click to place X's. The Show Next Step button 
+                will give one possible step to make progress. The Apply Next Step button will apply the 
+                shown step. The Auto Solve button will solve the puzzle completely, but may take some time.">
             <IconButton>
                 <HelpIcon />
             </IconButton>

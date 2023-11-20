@@ -2,16 +2,19 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import {
   createBrowserRouter,
+  Outlet,
   RouterProvider,
 } from "react-router-dom";
 
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 
-import ErrorPage from "./routes/error";
 import AboutPage from "./routes/about";
+import ErrorPage from "./routes/error";
+import HomePage from './routes/home';
+import Layout from './routes/layout';
+
 import './index.css';
-import App from './routes/App';
 import reportWebVitals from './reportWebVitals';
 import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
@@ -28,13 +31,19 @@ const theme = createTheme({
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <App />,
-    errorElement: <ErrorPage />,
-  },
-  {
-    path: "about",
-    element: <AboutPage />,
-  },
+    element: <Layout><Outlet /></Layout>,
+    children: [
+      {
+        path: "/",
+        element: <HomePage />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: "about",
+        element: <AboutPage />,
+      },
+    ]
+  }
 ]);
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement

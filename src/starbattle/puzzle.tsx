@@ -449,14 +449,14 @@ export default function StarBattlePuzzle(): JSX.Element {
             } else if (!isDragging) return
             console.log(event)
             event.preventDefault()
-            const { clientX, clientY, buttons, target: { offsetLeft, offsetTop, offsetWidth, offsetHeight }} = event
-            console.log("i, size, x, clientX, offsetLeft, offsetLeft + offsetWidth, y, clientY, offsetTop, offsetTop + offsetHeight")
-            console.log(i, size, "//", x, clientX, offsetLeft, offsetLeft + offsetWidth, "//", y, clientY, offsetTop, offsetTop + offsetHeight)
+            const { pageX, pageY, buttons, target: { offsetLeft, offsetTop, offsetWidth, offsetHeight }} = event
+            console.log("i, size, x, pageX, offsetLeft, offsetLeft + offsetWidth, y, pageY, offsetTop, offsetTop + offsetHeight")
+            console.log(i, size, "//", x, pageX, offsetLeft, offsetLeft + offsetWidth, "//", y, pageY, offsetTop, offsetTop + offsetHeight)
             const leftClick = buttons === 1
-            const closeToLeft = Math.abs(offsetLeft - clientX) < margin
-            const closeToTop = Math.abs(offsetTop - clientY) < margin
-            const closeToRight = Math.abs(offsetLeft + offsetWidth - clientX) < margin
-            const closeToBottom = Math.abs(offsetTop + offsetHeight - clientY) < margin
+            const closeToLeft = Math.abs(offsetLeft - pageX) < margin
+            const closeToTop = Math.abs(offsetTop - pageY) < margin
+            const closeToRight = Math.abs(offsetLeft + offsetWidth - pageX) < margin
+            const closeToBottom = Math.abs(offsetTop + offsetHeight - pageY) < margin
             // If close to mutliple walls, avoid unwanted changes by not changing anything
             console.log(closeToLeft, closeToTop, closeToRight, closeToBottom)
             if ([closeToLeft, closeToTop, closeToRight, closeToBottom].filter(b => b).length > 1) return

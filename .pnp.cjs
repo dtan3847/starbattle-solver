@@ -38,6 +38,7 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["@emotion/react", "virtual:a14694d5a9c4c18aa923fed8314097f93f7da815f2ccf6d28e58cacc0ea58c99aabb7d5f5f891caa8a37afb5b217f597ff5af2802a94fc8d27fce97aa324b74b#npm:11.11.1"],\
             ["@emotion/styled", "virtual:a14694d5a9c4c18aa923fed8314097f93f7da815f2ccf6d28e58cacc0ea58c99aabb7d5f5f891caa8a37afb5b217f597ff5af2802a94fc8d27fce97aa324b74b#npm:11.11.0"],\
             ["@fontsource/roboto", "npm:5.0.3"],\
+            ["@mui/icons-material", "virtual:a14694d5a9c4c18aa923fed8314097f93f7da815f2ccf6d28e58cacc0ea58c99aabb7d5f5f891caa8a37afb5b217f597ff5af2802a94fc8d27fce97aa324b74b#npm:5.14.18"],\
             ["@mui/lab", "virtual:a14694d5a9c4c18aa923fed8314097f93f7da815f2ccf6d28e58cacc0ea58c99aabb7d5f5f891caa8a37afb5b217f597ff5af2802a94fc8d27fce97aa324b74b#npm:5.0.0-alpha.140"],\
             ["@mui/material", "virtual:a14694d5a9c4c18aa923fed8314097f93f7da815f2ccf6d28e58cacc0ea58c99aabb7d5f5f891caa8a37afb5b217f597ff5af2802a94fc8d27fce97aa324b74b#npm:5.14.5"],\
             ["@testing-library/dom", "npm:9.3.1"],\
@@ -4986,6 +4987,14 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["regenerator-runtime", "npm:0.13.11"]\
           ],\
           "linkType": "HARD"\
+        }],\
+        ["npm:7.23.4", {\
+          "packageLocation": "./.yarn/cache/@babel-runtime-npm-7.23.4-2e68957572-8eb6a6b236.zip/node_modules/@babel/runtime/",\
+          "packageDependencies": [\
+            ["@babel/runtime", "npm:7.23.4"],\
+            ["regenerator-runtime", "npm:0.14.0"]\
+          ],\
+          "linkType": "HARD"\
         }]\
       ]],\
       ["@babel/template", [\
@@ -6231,6 +6240,33 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "packageLocation": "./.yarn/cache/@mui-core-downloads-tracker-npm-5.14.5-8612a211a7-934fe49cf1.zip/node_modules/@mui/core-downloads-tracker/",\
           "packageDependencies": [\
             ["@mui/core-downloads-tracker", "npm:5.14.5"]\
+          ],\
+          "linkType": "HARD"\
+        }]\
+      ]],\
+      ["@mui/icons-material", [\
+        ["npm:5.14.18", {\
+          "packageLocation": "./.yarn/cache/@mui-icons-material-npm-5.14.18-18bfb4e7be-719cd99f73.zip/node_modules/@mui/icons-material/",\
+          "packageDependencies": [\
+            ["@mui/icons-material", "npm:5.14.18"]\
+          ],\
+          "linkType": "SOFT"\
+        }],\
+        ["virtual:a14694d5a9c4c18aa923fed8314097f93f7da815f2ccf6d28e58cacc0ea58c99aabb7d5f5f891caa8a37afb5b217f597ff5af2802a94fc8d27fce97aa324b74b#npm:5.14.18", {\
+          "packageLocation": "./.yarn/__virtual__/@mui-icons-material-virtual-b80f5bb2ec/0/cache/@mui-icons-material-npm-5.14.18-18bfb4e7be-719cd99f73.zip/node_modules/@mui/icons-material/",\
+          "packageDependencies": [\
+            ["@mui/icons-material", "virtual:a14694d5a9c4c18aa923fed8314097f93f7da815f2ccf6d28e58cacc0ea58c99aabb7d5f5f891caa8a37afb5b217f597ff5af2802a94fc8d27fce97aa324b74b#npm:5.14.18"],\
+            ["@babel/runtime", "npm:7.23.4"],\
+            ["@mui/material", "virtual:a14694d5a9c4c18aa923fed8314097f93f7da815f2ccf6d28e58cacc0ea58c99aabb7d5f5f891caa8a37afb5b217f597ff5af2802a94fc8d27fce97aa324b74b#npm:5.14.5"],\
+            ["@types/mui__material", null],\
+            ["@types/react", "npm:18.2.12"],\
+            ["react", "npm:18.2.0"]\
+          ],\
+          "packagePeers": [\
+            "@mui/material",\
+            "@types/mui__material",\
+            "@types/react",\
+            "react"\
           ],\
           "linkType": "HARD"\
         }]\
@@ -18998,6 +19034,7 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["@emotion/react", "virtual:a14694d5a9c4c18aa923fed8314097f93f7da815f2ccf6d28e58cacc0ea58c99aabb7d5f5f891caa8a37afb5b217f597ff5af2802a94fc8d27fce97aa324b74b#npm:11.11.1"],\
             ["@emotion/styled", "virtual:a14694d5a9c4c18aa923fed8314097f93f7da815f2ccf6d28e58cacc0ea58c99aabb7d5f5f891caa8a37afb5b217f597ff5af2802a94fc8d27fce97aa324b74b#npm:11.11.0"],\
             ["@fontsource/roboto", "npm:5.0.3"],\
+            ["@mui/icons-material", "virtual:a14694d5a9c4c18aa923fed8314097f93f7da815f2ccf6d28e58cacc0ea58c99aabb7d5f5f891caa8a37afb5b217f597ff5af2802a94fc8d27fce97aa324b74b#npm:5.14.18"],\
             ["@mui/lab", "virtual:a14694d5a9c4c18aa923fed8314097f93f7da815f2ccf6d28e58cacc0ea58c99aabb7d5f5f891caa8a37afb5b217f597ff5af2802a94fc8d27fce97aa324b74b#npm:5.0.0-alpha.140"],\
             ["@mui/material", "virtual:a14694d5a9c4c18aa923fed8314097f93f7da815f2ccf6d28e58cacc0ea58c99aabb7d5f5f891caa8a37afb5b217f597ff5af2802a94fc8d27fce97aa324b74b#npm:5.14.5"],\
             ["@testing-library/dom", "npm:9.3.1"],\

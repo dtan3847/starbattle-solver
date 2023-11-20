@@ -15,7 +15,7 @@ import {
 } from './utils'
 
 import './puzzle.css'
-import { Box, Button, Container, IconButton, Slider, Stack, Tooltip } from "@mui/material";
+import { Box, Button, Container, IconButton, Slider, Stack, ToggleButton, ToggleButtonGroup, Tooltip } from "@mui/material";
 import { LoadingButton } from "@mui/lab";
 import HelpIcon from '@mui/icons-material/Help';
 
@@ -188,12 +188,19 @@ export default function StarBattlePuzzle(): JSX.Element {
     return (
         <Container>
             <Stack className="StarBattle-Puzzle" spacing={2} alignItems="center" minWidth="100%">
-                <Button
-                    variant="outlined"
-                    onClick={() => setMode((mode + 1) % 2)}
+                <ToggleButtonGroup
+                    value={mode}
+                    exclusive
+                    onChange={(_, newMode) => setMode(newMode)}
+                    aria-label="text alignment"
                 >
-                    Mode: {Mode[mode]}
-                </Button>
+                    <ToggleButton value={Mode.DRAW} aria-label="mode draw">
+                        Draw
+                    </ToggleButton>
+                    <ToggleButton value={Mode.SOLVE} aria-label="mode solve">
+                        Solve
+                    </ToggleButton>
+                </ToggleButtonGroup>
                 {sliderBox}
                 {
                     mode === Mode.DRAW

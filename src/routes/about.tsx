@@ -33,13 +33,13 @@ const AboutPage = () => {
                 </ul>
             </Box>
 
-            <Box marginTop={4}>
+            {/* <Box marginTop={4}>
                 <Typography variant="h4">Contact Us</Typography>
                 <Typography variant="body1">
                     For more information, suggestions, or feedback, please contact us at 
                     <Link href="mailto:TODO@TODO"> TODO@TODO</Link>.
                 </Typography>
-            </Box>
+            </Box> */}
         </Container>
     );
 };

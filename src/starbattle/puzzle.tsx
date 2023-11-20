@@ -1,11 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
 import classNames from 'classnames';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Container from '@mui/material/Container';
-import Slider from '@mui/material/Slider';
-import Stack from '@mui/material/Stack';
-import LoadingButton from '@mui/lab/LoadingButton';
 
 import { Cell, PuzzleStep } from './types'
 import {
@@ -21,6 +15,9 @@ import {
 } from './utils'
 
 import './puzzle.css'
+import { Box, Button, Container, IconButton, Slider, Stack, Tooltip } from "@mui/material";
+import { LoadingButton } from "@mui/lab";
+import HelpIcon from '@mui/icons-material/Help';
 
 
 enum Mode {
@@ -52,6 +49,26 @@ function StarBattleCell({ value, className, onClick, onDrag }: CellProps): JSX.E
         </button>
     )
 }
+
+const DrawTooltip = () => {
+    return (
+        <Tooltip title="Left click and drag to create walls. Right click to erase them.">
+            <IconButton>
+                <HelpIcon />
+            </IconButton>
+        </Tooltip>
+    );
+};
+
+const SolveTooltip = () => {
+    return (
+        <Tooltip title="Left click to place stars. Right click to place X's.">
+            <IconButton>
+                <HelpIcon />
+            </IconButton>
+        </Tooltip>
+    );
+};
 
 // TODO: store walls as map to avoid having to recreate them when resizing
 export default function StarBattlePuzzle(): JSX.Element {
@@ -178,6 +195,11 @@ export default function StarBattlePuzzle(): JSX.Element {
                     Mode: {Mode[mode]}
                 </Button>
                 {sliderBox}
+                {
+                    mode === Mode.DRAW
+                    ? <DrawTooltip />
+                    : <SolveTooltip />
+                }
                 <div
                     className="StarBattle-Grid"
                     style={{
@@ -416,6 +438,7 @@ export default function StarBattlePuzzle(): JSX.Element {
         return {groups, cellIndexToGroupIndex}
     }
 
+    // TODO: support mobile
     function makeCellClickHandler(i: number) {
         return (event: React.MouseEvent<HTMLElement>) => {
             if (resizingCells !== null) return
@@ -423,9 +446,15 @@ export default function StarBattlePuzzle(): JSX.Element {
                 setShowNextStep(false)
                 event.preventDefault()
                 if (mode === Mode.SOLVE) {
-                    // left click to cycle symbol forward, right click to cycle back
-                    if (event.type === "click") setCell(i, (cells[i] + 1) % 3)
-                    else if (event.type === "contextmenu") setCell(i, (cells[i] + 2) % 3)
+                    // left click to place/erase stars, right click to place/erase X's
+                    if (event.type === "click") {
+                        if (cells[i] === Cell.STAR) setCell(i, Cell.BLANK)
+                        else setCell(i, Cell.STAR)
+                    }
+                    else if (event.type === "contextmenu") {
+                        if (cells[i] === Cell.X) setCell(i, Cell.BLANK)
+                        else setCell(i, Cell.X)
+                    }
                     return
                 }
             }

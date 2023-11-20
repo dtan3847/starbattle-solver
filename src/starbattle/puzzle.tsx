@@ -10,7 +10,6 @@ import {
     getCoords,
     getIndex,
     outOfBounds,
-    partitionCells,
     range,
 } from './utils'
 
@@ -23,9 +22,6 @@ import HelpIcon from '@mui/icons-material/Help';
 enum Mode {
     DRAW,
     SOLVE,
-    GROUP_PARTITION,
-    ROW_PARTITION,
-    COLUMN_PARTITION,
 }
 
 type CellProps = {
@@ -108,36 +104,6 @@ export default function StarBattlePuzzle(): JSX.Element {
             }
         }
     }, [solverWorker])
-
-    const cellPartitionResidue: number[] = []
-    const groupPartitions: number[][][] = groups.map(group => (
-        partitionCells(size, group.filter(index => cells[index] === Cell.BLANK))
-    ))
-    const rowPartitions: number[][][] = rows.map(group => (
-        partitionCells(size, group.filter(index => cells[index] === Cell.BLANK))
-    ))
-    const columnPartitions: number[][][] = columns.map(group => (
-        partitionCells(size, group.filter(index => cells[index] === Cell.BLANK))
-    ))
-    if (mode === Mode.GROUP_PARTITION) {
-        for (const partitions of groupPartitions) {
-            partitions.forEach((partition, i) => {
-                partition.forEach(cellIndex => cellPartitionResidue[cellIndex] = i % 3)
-            })
-        }
-    } else if (mode === Mode.ROW_PARTITION) {
-        for (const partitions of rowPartitions) {
-            partitions.forEach((partition, i) => {
-                partition.forEach(cellIndex => cellPartitionResidue[cellIndex] = i % 3)
-            })
-        }
-    } else if (mode === Mode.COLUMN_PARTITION) {
-        for (const partitions of columnPartitions) {
-            partitions.forEach((partition, i) => {
-                partition.forEach(cellIndex => cellPartitionResidue[cellIndex] = i % 3)
-            })
-        }
-    }
 
     const solutionError = getSolutionErrorIfSolving()
     const nextStep = solutionError.indices ? {} : getNextStepIfNeeded()
@@ -517,9 +483,6 @@ export default function StarBattlePuzzle(): JSX.Element {
             'StarBattle-Cell-Indicated-Secondary': nextStep.otherIndices && nextStep.otherIndices.includes(i)
                                                     && (!nextStep.indices || !nextStep.indices.includes(i)),
             'StarBattle-Cell-Indicated-Error': solutionError.indices && solutionError.indices.includes(i),
-            'StarBattle-Cell-Partition-1': mode >= Mode.GROUP_PARTITION && cellPartitionResidue[i] === 0,
-            'StarBattle-Cell-Partition-2': mode >= Mode.GROUP_PARTITION && cellPartitionResidue[i] === 1,
-            'StarBattle-Cell-Partition-3': mode >= Mode.GROUP_PARTITION && cellPartitionResidue[i] === 2,
         })
     }
 

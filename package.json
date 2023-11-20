@@ -2,7 +2,7 @@
   "name": "starbattle-solver",
   "version": "0.1.0",
   "private": true,
-  "homepage": ".",
+  "homepage": "https://dtan3847.github.io/starbattle-solver",
   "dependencies": {
     "@babel/runtime": "^7.23.4",
     "@emotion/react": "^11.11.1",

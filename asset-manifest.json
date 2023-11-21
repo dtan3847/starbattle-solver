@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/starbattle-solver/static/css/main.0620ae4e.css",
-    "main.js": "/starbattle-solver/static/js/main.d1e0a1c3.js",
+    "main.js": "/starbattle-solver/static/js/main.45c1e74b.js",
     "static/js/84.8b39fc06.chunk.js": "/starbattle-solver/static/js/84.8b39fc06.chunk.js",
     "static/js/409.55d37ab4.chunk.js": "/starbattle-solver/static/js/409.55d37ab4.chunk.js",
     "static/media/roboto-latin-500-normal.woff2": "/starbattle-solver/static/media/roboto-latin-500-normal.f25d774ecfe0996f8eb5.woff2",
@@ -62,12 +62,12 @@
     "static/media/roboto-greek-ext-700-normal.woff": "/starbattle-solver/static/media/roboto-greek-ext-700-normal.249853776d22a271b2b5.woff",
     "index.html": "/starbattle-solver/index.html",
     "main.0620ae4e.css.map": "/starbattle-solver/static/css/main.0620ae4e.css.map",
-    "main.d1e0a1c3.js.map": "/starbattle-solver/static/js/main.d1e0a1c3.js.map",
+    "main.45c1e74b.js.map": "/starbattle-solver/static/js/main.45c1e74b.js.map",
     "84.8b39fc06.chunk.js.map": "/starbattle-solver/static/js/84.8b39fc06.chunk.js.map",
     "409.55d37ab4.chunk.js.map": "/starbattle-solver/static/js/409.55d37ab4.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.0620ae4e.css",
-    "static/js/main.d1e0a1c3.js"
+    "static/js/main.45c1e74b.js"
   ]
 }

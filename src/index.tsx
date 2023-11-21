@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import {
-  createBrowserRouter,
+  createHashRouter,
   Outlet,
   RouterProvider,
 } from "react-router-dom";
@@ -28,7 +28,7 @@ const theme = createTheme({
 });
 
 
-const router = createBrowserRouter([
+const router = createHashRouter([
   {
     path: "/",
     element: <Layout><Outlet /></Layout>,

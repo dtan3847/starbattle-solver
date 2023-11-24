@@ -67,10 +67,6 @@ Distributed under AGPL-3.0. See `LICENSE` for more information.
 
 ## Contact
 
-Your Name – david.tan135@gamil.com
+Your Name – david.tan135@gmail.com
 
 Project Link: [https://github.com/dtan3847/starbattle-solver](https://github.com/dtan3847/starbattle-solver)
-
----
-
-Feel free to modify this template to include any specific instructions or details about your application. Make sure to replace placeholders like `[repository-url]` and `[your-email@example.com]` with actual information relevant to your project.
